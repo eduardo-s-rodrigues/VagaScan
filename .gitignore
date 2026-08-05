@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+data/*.db
+data/pytest-temp-*/
+data/audit-*/
+data/tmp*/
+data/*.tmp
+logs/*.log
+exports/*.csv
+exports/*.md
+exports/*.tmp
+data/movimentacoes.json

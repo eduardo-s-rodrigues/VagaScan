@@ -1,0 +1,67 @@
+{
+  "linguagens": {
+    "Python": ["python"],
+    "Java": ["java"],
+    "JavaScript": ["javascript", "java script", "js"],
+    "SQL": ["sql"]
+  },
+  "bancos de dados": {
+    "SQLite": ["sqlite"],
+    "PostgreSQL": ["postgresql", "postgres"],
+    "MySQL": ["mysql"]
+  },
+  "ferramentas": {
+    "Git": ["git"],
+    "GitHub": ["github"],
+    "Docker": ["docker"],
+    "Excel": ["excel"]
+  },
+  "cloud": {
+    "AWS": ["aws", "amazon web services"],
+    "Azure": ["azure", "microsoft azure"]
+  },
+  "frameworks": {
+    "FastAPI": ["fastapi"],
+    "Django": ["django"],
+    "Flask": ["flask"]
+  },
+  "análise de dados": {
+    "Power BI": ["power bi", "powerbi"],
+    "ETL": ["etl"],
+    "Pandas": ["pandas"],
+    "NumPy": ["numpy"]
+  },
+  "suporte e infraestrutura": {
+    "Atendimento": ["atendimento", "atendimento ao cliente"],
+    "Suporte": ["suporte", "helpdesk", "service desk"],
+    "Redes": ["redes", "tcp/ip"],
+    "Hardware": ["hardware", "manutenção de computadores"],
+    "Active Directory": ["active directory", "ad windows"],
+    "Linux": ["linux"],
+    "Windows": ["windows"]
+  },
+  "metodologias": {
+    "ITIL": ["itil"],
+    "Scrum": ["scrum"],
+    "Kanban": ["kanban"]
+  },
+  "integrações e dados": {
+    "APIs REST": ["api rest", "apis rest", "restful", "rest"],
+    "JSON": ["json"]
+  },
+  "escolaridade": {
+    "Ensino superior": ["ensino superior", "graduacao", "graduação", "faculdade"],
+    "ADS": ["analise e desenvolvimento de sistemas", "análise e desenvolvimento de sistemas"]
+  },
+  "idiomas": {
+    "Inglês": ["ingles", "inglês", "english"]
+  },
+  "experiência": {
+    "Experiência profissional": ["experiencia", "experiência", "anos de experiencia", "anos de experiência"]
+  },
+  "habilidades comportamentais": {
+    "Organização": ["organizacao", "organização", "organizado"],
+    "Comunicação": ["comunicacao", "comunicação", "comunicativo"],
+    "Resolução de problemas": ["resolucao de problemas", "resolução de problemas", "problem solving"]
+  }
+}
