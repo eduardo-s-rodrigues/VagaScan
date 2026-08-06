@@ -1,0 +1,28 @@
+{
+  "nome": "Estudante de Análise e Desenvolvimento de Sistemas",
+  "formacao": "ADS",
+  "experiencia_anos": 1,
+  "conhecimentos": [
+    "Python",
+    "SQL"
+  ],
+  "areas_desejadas": [
+    "Backend"
+  ],
+  "localidades_desejadas": [
+    "Campinas"
+  ],
+  "niveis_desejados": [
+    "Júnior"
+  ],
+  "experiencias": [
+    "Projeto pessoal"
+  ],
+  "modalidades_desejadas": [
+    "Remoto"
+  ],
+  "idiomas": [
+    "Português"
+  ],
+  "nivel_profissional": "Júnior"
+}

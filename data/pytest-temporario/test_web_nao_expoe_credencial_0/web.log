@@ -1,0 +1,1 @@
+2026-08-05 23:02:33,371 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=python "HTTP/1.1 400 Bad Request"

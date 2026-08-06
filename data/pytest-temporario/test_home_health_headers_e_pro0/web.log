@@ -1,0 +1,4 @@
+2026-08-05 23:02:31,613 | INFO | httpx | HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
+2026-08-05 23:02:31,616 | INFO | httpx | HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-08-05 23:02:31,622 | INFO | httpx | HTTP Request: GET http://testserver/dashboard "HTTP/1.1 303 See Other"
+2026-08-05 23:02:31,637 | INFO | httpx | HTTP Request: GET https://testserver/ "HTTP/1.1 200 OK"

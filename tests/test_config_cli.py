@@ -36,6 +36,30 @@ def test_timeout_invalido_volta_ao_padrao(
     assert load_settings(tmp_path / "nao-existe.env").api_timeout == 10
 
 
+def test_limites_de_busca_tem_defaults_e_faixas_seguras(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nomes = (
+        "VAGASSCAN_PUBLIC_SEARCH_COOLDOWN_SECONDS",
+        "VAGASSCAN_PUBLIC_SEARCH_LIMIT_PER_HOUR",
+        "VAGASSCAN_ADMIN_SEARCH_LIMIT_PER_HOUR",
+    )
+    for nome in nomes:
+        monkeypatch.delenv(nome, raising=False)
+    configuracao = load_settings(tmp_path / "nao-existe.env")
+    assert configuracao.public_search_cooldown_seconds == 15
+    assert configuracao.public_search_limit_per_hour == 30
+    assert configuracao.admin_search_limit_per_hour == 100
+
+    monkeypatch.setenv(nomes[0], "999")
+    monkeypatch.setenv(nomes[1], "0")
+    monkeypatch.setenv(nomes[2], "9000")
+    limitada = load_settings(tmp_path / "nao-existe.env")
+    assert limitada.public_search_cooldown_seconds == 300
+    assert limitada.public_search_limit_per_hour == 1
+    assert limitada.admin_search_limit_per_hour == 5000
+
+
 def test_pergunta_data_repete_ate_receber_data_valida(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

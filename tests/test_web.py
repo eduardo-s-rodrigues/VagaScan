@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from vagasscan.config import PROJECT_ROOT, Settings
 from vagasscan.security import gerar_hash_senha
 from vagasscan.web.app import create_app
+from vagasscan.web.common import RateLimiter, RateRule
 
 
 class Response:
@@ -281,3 +282,126 @@ def test_web_nao_expoe_credencial_em_erro(web_settings: Settings) -> None:
         assert response.status_code == 400
         assert "ADZUNA_APP_ID" in response.text
         assert "app-key-super-secreta" not in response.text
+
+
+def test_rate_limiter_tem_relogio_injetavel_cooldown_e_reserva_atomica() -> None:
+    instante = [100.0]
+    limiter = RateLimiter(lambda: instante[0])
+    regras = [
+        RateRule("public-hour", "visitante", 2, 3600, 15),
+        RateRule("adzuna-global", "global", 10, 60),
+    ]
+
+    assert limiter.reserve(regras) == 0
+    assert limiter.reserve(regras) == 15
+    assert len(limiter.events[("public-hour", "visitante")]) == 1
+    assert len(limiter.events[("adzuna-global", "global")]) == 1
+
+    instante[0] += 15
+    assert limiter.reserve(regras) == 0
+    instante[0] += 15
+    assert limiter.reserve(regras) == 3570
+    instante[0] += 3570
+    assert limiter.reserve(regras) == 0
+
+
+def test_busca_publica_conta_apenas_cache_miss_e_exibe_cooldown(
+    web_settings: Settings,
+) -> None:
+    instante = [500.0]
+    session = Session()
+    application = create_app(web_settings, adzuna_session=session)
+    application.state.rate_limiter = RateLimiter(lambda: instante[0])
+
+    with TestClient(application) as client:
+        primeira = client.get("/buscar?termo=python&provedor=adzuna")
+        assert primeira.status_code == 200
+        repetida = client.get(
+            "/buscar?termo=python&provedor=adzuna&modalidade=presencial&ordem=titulo"
+        )
+        assert repetida.status_code == 200
+        assert "Nenhuma vaga neste filtro" in repetida.text
+        assert session.calls == 1
+        assert len(application.state.rate_limiter.events) == 2
+
+        bloqueada = client.get("/buscar?termo=fastapi&provedor=adzuna")
+        assert bloqueada.status_code == 429
+        assert "Tente novamente em 15 segundos" in bloqueada.text
+        assert 'data-rate-limit="15"' in bloqueada.text
+        assert "Voltar aos resultados anteriores" in bloqueada.text
+        assert session.calls == 1
+
+        instante[0] += 15
+        liberada = client.get("/buscar?termo=fastapi&provedor=adzuna")
+        assert liberada.status_code == 200
+        assert session.calls == 2
+
+
+def test_busca_administrativa_nao_usa_cooldown_publico_e_tem_limite_proprio(
+    web_settings: Settings,
+) -> None:
+    settings = replace(
+        web_settings,
+        public_search_cooldown_seconds=300,
+        admin_search_limit_per_hour=2,
+    )
+    instante = [900.0]
+    session = Session()
+    application = create_app(settings, adzuna_session=session)
+    application.state.rate_limiter = RateLimiter(lambda: instante[0])
+
+    with TestClient(application) as client:
+        login(client)
+        assert client.get("/dashboard/buscar?termo=python").status_code == 200
+        assert client.get("/dashboard/buscar?termo=sql").status_code == 200
+        bloqueada = client.get("/dashboard/buscar?termo=fastapi")
+        assert bloqueada.status_code == 429
+        assert "3600 segundos" in bloqueada.text
+        assert session.calls == 2
+
+
+def test_navegacao_publica_rodape_salvos_e_contrato_local_seguro(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        home = client.get("/")
+        header = re.search(r"<header[\s\S]*?</header>", home.text)
+        footer = re.search(r"<footer[\s\S]*?</footer>", home.text)
+        assert header and footer
+        assert "Início" in header.group()
+        assert "Vagas salvas" in header.group()
+        assert "/login" not in header.group()
+        assert "GitHub" not in header.group()
+        assert "https://github.com/" in footer.group()
+        assert "https://eduardosrodriguesdev.com.br/" in footer.group()
+        assert footer.group().count('rel="noopener noreferrer"') >= 3
+
+        saved = client.get("/vagas-salvas")
+        assert saved.status_code == 200
+        assert "As vagas salvas ficam armazenadas apenas neste navegador" in saved.text
+        assert 'id="saved-job-template"' in saved.text
+
+        script = client.get("/static/js/app.js").text
+        assert "vagasscan.savedJobs.v1" in script
+        assert "MAX_SAVED_JOBS = 100" in script
+        assert ".textContent" in script
+        assert "JSON.parse" in script
+        assert "localStorage.removeItem" in script
+        assert "http:" in script and "https:" in script
+
+
+def test_cards_publicos_resumo_tecnologias_e_salvamento(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        response = client.get("/buscar?termo=python&provedor=adzuna")
+        assert response.status_code == 200
+        assert 'class="job-card job-card-horizontal"' in response.text
+        assert 'class="compatibility-score' in response.text
+        assert "Resumo da sua busca" in response.text
+        assert "Tecnologias mais pedidas" in response.text
+        assert "Alta compatibilidade" in response.text
+        assert "80% ou mais" in response.text
+        assert "data-save-job=" in response.text
+        assert "Salvar vaga" in response.text
+        assert "Vagas fornecidas pela Adzuna" in response.text

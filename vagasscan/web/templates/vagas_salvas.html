@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Vagas salvas — VagaScan{% endblock %}
+{% block content %}
+<section class="search-page-head saved-page-head">
+  <div class="container"><p class="eyebrow">NO SEU NAVEGADOR</p><h1>Vagas salvas</h1><p>Reúna oportunidades para consultar novamente sem criar uma conta.</p></div>
+</section>
+<section class="section saved-jobs-section">
+  <div class="container">
+    <div class="notice saved-notice" role="note"><strong>Armazenamento local</strong><p>As vagas salvas ficam armazenadas apenas neste navegador.</p></div>
+    <div class="saved-page-heading"><h2>Suas oportunidades</h2><span aria-live="polite" data-saved-count>0 vagas</span></div>
+    <div class="saved-jobs-list" data-saved-jobs-list></div>
+    <div class="empty" data-saved-empty><h3>Nenhuma vaga salva</h3><p>Use o botão “Salvar vaga” nos resultados para montar sua lista.</p><a class="button" href="/buscar">Buscar vagas</a></div>
+  </div>
+</section>
+
+<template id="saved-job-template">
+  <article class="saved-job-card">
+    <div><p class="saved-date"></p><h3></h3><p class="company"></p><p class="metadata"></p></div>
+    <div class="saved-score" aria-label="Compatibilidade"><strong></strong><span>compatível</span></div>
+    <div class="card-actions"><a class="button button-small saved-detail">Ver detalhes</a><a class="button button-secondary button-small saved-original" target="_blank" rel="noopener noreferrer">Abrir vaga original</a><button class="button button-quiet button-small saved-remove" type="button">Remover dos salvos</button></div>
+  </article>
+</template>
+{% endblock %}

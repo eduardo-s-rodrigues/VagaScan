@@ -1,0 +1,5 @@
+2026-08-05 23:02:33,524 | INFO | vagasscan.services.vagas | Vaga cadastrada e analisada: id=1 fonte=adzuna
+2026-08-05 23:02:33,526 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=python&provedor=adzuna "HTTP/1.1 200 OK"
+2026-08-05 23:02:33,536 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=python&provedor=adzuna&modalidade=presencial&ordem=titulo "HTTP/1.1 200 OK"
+2026-08-05 23:02:33,540 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=fastapi&provedor=adzuna "HTTP/1.1 429 Too Many Requests"
+2026-08-05 23:02:33,554 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=fastapi&provedor=adzuna "HTTP/1.1 200 OK"

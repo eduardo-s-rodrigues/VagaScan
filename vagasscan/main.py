@@ -117,6 +117,7 @@ def main() -> None:
             host=settings.host,
             port=settings.port,
             reload=settings.environment == "development",
+            access_log=False,
         )
         return
 

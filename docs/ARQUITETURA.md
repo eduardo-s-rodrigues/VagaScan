@@ -65,13 +65,24 @@ expirado criado há no máximo 24 horas, marcando `veio_cache` e `cache_desatual
 
 ### Busca pública
 
-1. FastAPI valida limites e rate limiting.
-2. O provedor devolve vagas, possivelmente via cache.
-3. `VagaService` analisa com `profile_public.json`.
-4. Vagas/requisitos são deduplicados e salvos em `vagasscan_public.db`.
-5. O template recebe somente objetos públicos e metadados seguros.
+1. FastAPI valida a consulta, mas ainda não consome a cota externa.
+2. `VagaService` verifica primeiro o cache normalizado.
+3. Somente em cache miss, um hook autoriza e registra a tentativa imediatamente antes da rede.
+4. O provedor devolve vagas; a demonstração nunca passa pelo hook.
+5. `VagaService` analisa com `profile_public.json` e devolve também os requisitos detectados.
+6. Vagas/requisitos são deduplicados e salvos em `vagasscan_public.db`.
+7. Modalidade e ordenação são aplicadas ao conjunto atual, sem alterar a consulta Adzuna ou a chave
+   de cache.
+8. O template recebe somente objetos públicos e metadados seguros.
 
 O banco principal não participa desse fluxo.
+
+### Vagas salvas no navegador
+
+`/vagas-salvas` não usa repository nem cria migração. O JavaScript local mantém no máximo 100
+registros em `vagasscan.savedJobs.v1`, contendo somente identificador público, resumo da vaga, URLs
+HTTP(S) validadas e data de salvamento. A renderização usa `textContent`, recupera JSON corrompido e
+reage ao evento `storage` entre abas. Essa lista pública é independente das candidaturas privadas.
 
 ### Busca privada/CLI
 
@@ -116,7 +127,9 @@ por validação HTTP(S).
 
 A CSP permite apenas recursos locais, bloqueia objetos e framing. Headers complementares reduzem
 riscos de MIME sniffing, referrer, permissões e clickjacking. Limites em memória reduzem abuso do
-MVP, mas não substituem Redis ou gateway em múltiplas instâncias.
+MVP, mas não substituem Redis ou gateway em múltiplas instâncias. O identificador do visitante é um
+HMAC do endereço em memória; nenhum IP completo é persistido ou registrado. Cache hits e filtros
+locais não consomem a cota de busca externa.
 
 O organizador web só funciona com flag e caminhos definidos no servidor. O navegador nunca escolhe
 caminhos, e a implementação existente continua bloqueando projeto, symlinks, destinos ocupados e

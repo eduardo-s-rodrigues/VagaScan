@@ -48,7 +48,7 @@ class RateLimiter:
         bucket.append(self.clock())
         return True
 
-    def reserve(self, rules: list["RateRule"]) -> int:
+    def reserve(self, rules: list[RateRule]) -> int:
         """Reserva todos os limites de forma atômica ou devolve o tempo de espera."""
         now = self.clock()
         buckets: list[tuple[RateRule, deque[float]]] = []
@@ -132,6 +132,7 @@ def contexto(request: Request, **values: Any) -> dict[str, Any]:
         "request": request,
         "settings": request.app.state.settings,
         "authenticated": bool(request.session.get("admin")),
+        "private_navigation": request.url.path.startswith("/dashboard"),
         "csrf_token": token,
         "flash": request.app.state.flash_messages.pop(flash_key, None),
     }

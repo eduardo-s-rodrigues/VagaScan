@@ -18,7 +18,7 @@ apenas conecta o subdomínio ao endereço fornecido por essa hospedagem.
 3. Configure o comando de produção:
 
    ```sh
-   uvicorn vagasscan.web.app:app --host 0.0.0.0 --port $PORT
+   uvicorn vagasscan.web.app:app --no-access-log --host 0.0.0.0 --port $PORT
    ```
 
 4. Não adicione `--reload` e use um único worker enquanto SQLite/rate limiting local estiverem em

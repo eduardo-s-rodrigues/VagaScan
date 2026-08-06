@@ -163,7 +163,7 @@ python -m vagasscan web
 Acesse [http://127.0.0.1:8000](http://127.0.0.1:8000). Também funciona:
 
 ```powershell
-python -m uvicorn vagasscan.web.app:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn vagasscan.web.app:app --reload --no-access-log --host 127.0.0.1 --port 8000
 ```
 
 Em produção, não use reload. O health check é `GET /health` e retorna somente:
@@ -175,12 +175,17 @@ Em produção, não use reload. O health check é `GET /health` e retorna soment
 ### Área pública
 
 Visitantes podem ver a landing page, buscar vagas em banco público separado, abrir detalhes e
-analisar temporariamente uma descrição. Não podem consultar o banco principal, perfil real,
-candidaturas, observações, relatórios ou organizador.
+analisar temporariamente uma descrição. Também podem manter até 100 oportunidades em “Vagas
+salvas”; essa lista fica somente no `localStorage` do navegador, não cria candidatura e não acessa
+o banco. Visitantes não podem consultar o banco principal, perfil real, candidaturas, observações,
+relatórios ou organizador.
 
 `VAGASSCAN_PUBLIC_DEMO=false` mantém landing e login, mas desabilita busca/análise públicas. O
-limitador simples é por processo: cinco buscas/minuto, dez análises/minuto e dez cache misses Adzuna
-por minuto no total.
+limitador simples é por processo. Apenas um cache miss imediatamente antes de uma tentativa externa
+consome a cota: visitantes têm 15 segundos de intervalo e 30 tentativas/hora; o administrador tem
+100 tentativas/hora sem cooldown público; a Adzuna continua limitada globalmente a dez tentativas
+por minuto. Cache hit, demonstração, modalidade e ordenação local não consomem esses limites. As
+três cotas são configuráveis pelas variáveis documentadas em `.env.example`.
 
 ### Área privada
 
@@ -228,6 +233,7 @@ paginação, conversão, cache, erros e proteção de segredos.
 - Jinja2 com autoescape, URLs HTTP(S) validadas e CSP sem scripts inline;
 - cookies HttpOnly, SameSite, Secure em produção, expiração e invalidação no logout;
 - CSRF em formulários POST, rate limiting em memória e limites de tamanho;
+- visitantes identificados nos contadores por HMAC efêmero, sem IP completo em banco ou logs;
 - headers `nosniff`, Referrer-Policy, Permissions-Policy, frame protection e HSTS sob HTTPS;
 - credenciais ausentes de HTML, JavaScript, health check, cache e mensagens de erro;
 - banco, perfil, logs e documentos fora dos arquivos estáticos;
@@ -258,6 +264,7 @@ Leia também [Arquitetura](docs/ARQUITETURA.md), [Deploy](docs/DEPLOY.md),
 - descrições de busca da Adzuna podem ser resumidas/truncadas pela própria fonte;
 - filtro remoto é uma heurística local;
 - rate limiting é em memória e pressupõe um processo;
+- vagas salvas públicas são locais a um navegador e não sincronizam entre dispositivos;
 - SQLite requer volume persistente e não é adequado a múltiplas instâncias concorrentes;
 - cache pode mostrar resultado marcado com até 24 horas durante falha transitória;
 - organizador continua dependente do sistema de arquivos local;

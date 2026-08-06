@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Buscar vagas — VagaScan{% endblock %}
+{% block content %}
+<section class="search-page-head">
+  <div class="container">
+    <p class="eyebrow">OPORTUNIDADES</p>
+    <h1>{% if resultado %}Vagas encontradas{% else %}Encontre sua próxima vaga{% endif %}</h1>
+    <p>Pesquise oportunidades de tecnologia e compare os requisitos com o perfil público de demonstração.</p>
+    {% if error %}
+      <div class="alert alert-error rate-limit-alert" role="alert" {% if retry_after %}data-rate-limit="{{ retry_after }}"{% endif %}>
+        <strong>{% if retry_after %}Muitas buscas{% else %}Não foi possível buscar{% endif %}</strong>
+        <span>{{ error }}</span>
+        {% if retry_after %}<a class="button button-secondary button-small recent-search-link" href="/buscar" data-recent-search hidden>Voltar aos resultados anteriores</a>{% endif %}
+      </div>
+    {% endif %}
+    <form class="search-panel public-search-form search-panel-light" method="get" action="/buscar" data-public-search-form>
+      <input type="hidden" name="provedor" value="{{ provider_name }}">
+      <div class="search-field search-field-main"><label for="search-term">Cargo ou palavra-chave</label><input id="search-term" name="termo" maxlength="100" required value="{{ request.query_params.get('termo', '') }}" placeholder="Python Júnior"></div>
+      <div class="search-field"><label for="search-location">Localização</label><input id="search-location" name="localizacao" maxlength="100" value="{{ request.query_params.get('localizacao', '') }}" placeholder="São Paulo ou Brasil"></div>
+      <div class="search-field"><label for="search-modality">Modalidade</label><select id="search-modality" name="modalidade"><option value="" {% if not modalidade %}selected{% endif %}>Todas</option><option value="presencial" {% if modalidade == 'presencial' %}selected{% endif %}>Presencial</option><option value="hibrido" {% if modalidade == 'hibrido' %}selected{% endif %}>Híbrido</option><option value="remoto" {% if modalidade == 'remoto' %}selected{% endif %}>Remoto</option></select></div>
+      <button class="button search-submit" type="submit" data-search-submit>Buscar vagas</button>
+    </form>
+    <div class="quick-searches quick-searches-light" aria-label="Sugestões rápidas">
+      <span>Sugestões:</span>
+      <button type="button" data-suggestion-term="Python Júnior">Python Júnior</button>
+      <button type="button" data-suggestion-term="Analista de Sistemas">Analista de Sistemas</button>
+      <button type="button" data-suggestion-term="Analista de Dados">Analista de Dados</button>
+      <button type="button" data-suggestion-term="Suporte Técnico">Suporte Técnico</button>
+      <button type="button" data-suggestion-term="Desenvolvedor" data-suggestion-location="Brasil" data-suggestion-modality="remoto">Remoto Brasil</button>
+    </div>
+  </div>
+</section>
+
+{% if resultado %}
+<section class="section results-section" data-store-search-url>
+  <div class="container">
+    <div class="results-heading">
+      <div><p class="eyebrow">RESULTADOS</p><h2>Vagas encontradas</h2><p>{{ consulta.termo }}{% if consulta.localizacao %} em {{ consulta.localizacao }}{% endif %}{% if modalidade %} • {{ modalidade|capitalize }}{% endif %}</p></div>
+      <form class="sort-form" method="get" action="/buscar">
+        <input type="hidden" name="termo" value="{{ consulta.termo }}"><input type="hidden" name="localizacao" value="{{ consulta.localizacao }}"><input type="hidden" name="modalidade" value="{{ modalidade }}"><input type="hidden" name="provedor" value="{{ provider_name }}"><input type="hidden" name="pagina" value="{{ consulta.pagina }}"><input type="hidden" name="resultados_por_pagina" value="{{ consulta.resultados_por_pagina }}">
+        <label for="result-order">Ordenar por</label><select id="result-order" name="ordem" data-sort-select><option value="compatibilidade" {% if ordem == 'compatibilidade' %}selected{% endif %}>Maior compatibilidade</option><option value="recentes" {% if ordem == 'recentes' %}selected{% endif %}>Mais recentes</option><option value="titulo" {% if ordem == 'titulo' %}selected{% endif %}>Título</option><option value="empresa" {% if ordem == 'empresa' %}selected{% endif %}>Empresa</option></select><noscript><button class="button button-small" type="submit">Ordenar</button></noscript>
+      </form>
+    </div>
+    <div class="results-summary" aria-live="polite">
+      <span>Recebidas <strong>{{ resultado.recebidas }}</strong></span><span>Cadastradas <strong>{{ resultado.cadastradas|length }}</strong></span><span>Duplicatas <strong>{{ resultado.duplicadas|length }}</strong></span><span>Origem <strong>{{ resultado.origem }}</strong></span><span>Página <strong>{{ resultado.pagina }}</strong></span><span>Ordem <strong>{{ {'compatibilidade':'Compatibilidade','recentes':'Recentes','titulo':'Título','empresa':'Empresa'}[ordem] }}</strong></span>
+    </div>
+    {% if resultado.veio_cache %}<div class="alert" role="status">Resultado vindo do cache{% if resultado.cache_desatualizado %} anterior por indisponibilidade temporária da fonte{% endif %}.</div>{% endif %}
+    {% for item_error in resultado.erros %}<div class="alert alert-error">{{ item_error }}</div>{% endfor %}
+
+    <div class="results-layout">
+      <div class="jobs-list">
+        {% for item in resultado.itens %}
+          {% set vaga = item.vaga %}
+          {% set compativeis = item.analise.pontos_compativeis %}
+          {% set ausentes = item.analise.conhecimentos_ausentes %}
+          <article class="job-card job-card-horizontal">
+            <div class="job-card-content">
+              <div class="job-top"><span class="source">{{ vaga.fonte }}</span>{% if vaga.data_publicacao %}<span class="small">Publicada em {{ vaga.data_publicacao[:10] }}</span>{% endif %}</div>
+              <h3>{{ vaga.titulo }}</h3><p class="company">{{ vaga.empresa }}</p><p class="metadata">{{ vaga.localizacao }} <span aria-hidden="true">•</span> {{ vaga.modalidade }} <span aria-hidden="true">•</span> {{ vaga.nivel }}</p>
+              <div class="chip-groups">
+                <div><strong>Compatíveis</strong><div class="chips">{% for nome in compativeis[:4] %}<span class="chip chip-ok">{{ nome }}</span>{% endfor %}{% if compativeis|length > 4 %}<span class="chip chip-more">+{{ compativeis|length - 4 }}</span>{% endif %}{% if not compativeis %}<span class="muted small">Nenhum detectado</span>{% endif %}</div></div>
+                <div><strong>Ausentes</strong><div class="chips">{% for nome in ausentes[:4] %}<span class="chip chip-missing">{{ nome }}</span>{% endfor %}{% if ausentes|length > 4 %}<span class="chip chip-more">+{{ ausentes|length - 4 }}</span>{% endif %}{% if not ausentes %}<span class="muted small">Nenhum detectado</span>{% endif %}</div></div>
+              </div>
+              {% if vaga.fonte == 'adzuna' %}<p class="attribution">Vagas fornecidas pela Adzuna • <a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></p>{% endif %}
+              <div class="card-actions"><a class="button button-small" href="/vagas/{{ item.vaga_id }}">Ver detalhes</a>{% if url_http_segura(vaga.link) %}<a class="button button-secondary button-small" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}<button class="save-job-button button button-quiet button-small" type="button" data-save-job='{{ item.salvar_payload|tojson|forceescape }}' aria-pressed="false">Salvar vaga</button></div>
+            </div>
+            <div class="compatibility-score score-{{ item.score_bucket }}" aria-label="Compatibilidade de {{ '%.1f'|format(item.analise.pontuacao) }} por cento"><strong>{{ '%.0f'|format(item.analise.pontuacao) }}%</strong><span>compatível</span></div>
+          </article>
+        {% else %}<div class="empty"><h3>Nenhuma vaga neste filtro</h3><p>Tente outra modalidade ou um termo mais amplo.</p></div>{% endfor %}
+
+        <nav class="pagination" aria-label="Paginação dos resultados">
+          {% if consulta.pagina > 1 %}<a class="button button-secondary button-small" href="?termo={{ consulta.termo|urlencode }}&localizacao={{ consulta.localizacao|urlencode }}&provedor={{ provider_name }}&modalidade={{ modalidade }}&ordem={{ ordem }}&pagina={{ consulta.pagina - 1 }}&resultados_por_pagina={{ consulta.resultados_por_pagina }}">Página anterior</a>{% endif %}
+          {% if resultado.recebidas == consulta.resultados_por_pagina %}<a class="button button-small" href="?termo={{ consulta.termo|urlencode }}&localizacao={{ consulta.localizacao|urlencode }}&provedor={{ provider_name }}&modalidade={{ modalidade }}&ordem={{ ordem }}&pagina={{ consulta.pagina + 1 }}&resultados_por_pagina={{ consulta.resultados_por_pagina }}">Próxima página</a>{% endif %}
+        </nav>
+      </div>
+
+      <aside class="search-sidebar" aria-label="Resumo da sua busca">
+        <section class="sidebar-panel"><h2>Resumo da sua busca</h2><div class="sidebar-metrics"><div><span>Total de vagas</span><strong>{{ resultado.resumo.total }}</strong></div><div><span>Alta compatibilidade</span><strong>{{ resultado.resumo.alta_compatibilidade }}</strong><small>80% ou mais</small></div><div><span>Remotas</span><strong>{{ resultado.resumo.remotas }}</strong></div><div><span>Híbridas</span><strong>{{ resultado.resumo.hibridas }}</strong></div></div></section>
+        <section class="sidebar-panel"><h2>Tecnologias mais pedidas</h2>{% for tecnologia in resultado.resumo.tecnologias %}<div class="tech-bar"><div><span>{{ tecnologia.nome }}</span><strong>{{ tecnologia.quantidade }}</strong></div><progress max="100" value="{{ tecnologia.percentual }}">{{ tecnologia.percentual }}%</progress></div>{% else %}<p class="muted">Nenhuma tecnologia foi detectada neste conjunto.</p>{% endfor %}</section>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,4 +1,4 @@
-# Auditoria técnica — evolução web e Adzuna
+# Auditoria técnica — evolução web, Adzuna e experiência pública
 
 ## Estado inicial registrado
 
@@ -25,6 +25,8 @@ Nenhum valor do `.env` foi impresso ou incluído nesta auditoria.
 - `PerfilService` com validação, backup e substituição atômica;
 - FastAPI/Jinja2 com rotas públicas e dashboard privado;
 - autenticação scrypt, sessão assinada, CSRF e rate limiting em memória.
+- autorização de consulta externa executada apenas após cache miss, com relógio injetável;
+- experiência pública com filtros locais, painel de métricas e vagas salvas no navegador.
 
 ## Revisão de segurança
 
@@ -59,15 +61,21 @@ servidor. O navegador só confirma uma simulação e nunca informa caminhos.
 ### Limites conhecidos
 
 Rate limiting é local ao processo e reinicia com ele. SQLite e os contadores pressupõem um worker.
-Hospedagem horizontal exige PostgreSQL e limitador compartilhado. Filtro remoto é heurístico. A
+Hospedagem horizontal exige PostgreSQL e limitador compartilhado. O visitante é representado nos
+contadores por HMAC em memória, sem IP completo persistido ou registrado. Cache, demonstração,
+modalidade e ordenação local não consomem a cota de busca externa. Filtro remoto é heurístico. A
 licença e limites da Adzuna devem ser reconfirmados antes de publicar.
+
+“Vagas salvas” usa exclusivamente o armazenamento local versionado do navegador, limitado a 100
+itens e com URLs HTTP(S) validadas. Não grava candidatura, não consulta o banco privado e não
+sincroniza entre dispositivos.
 
 ## Evidências finais
 
 Validações executadas em 5 de agosto de 2026, no Windows e Python 3.14.6:
 
 - dependências instaladas em modo editável com o conjunto de desenvolvimento;
-- `pytest`: **109 aprovados, 1 ignorado**, em 3,54 s;
+- `pytest`: **115 aprovados, 1 ignorado**;
 - teste ignorado: criação de symlink não permitida neste Windows, mesma restrição da linha de base;
 - aviso não bloqueante: o `TestClient` da versão instalada da Starlette sinaliza futura migração de
   `httpx` para `httpx2`;
@@ -80,12 +88,14 @@ Validações executadas em 5 de agosto de 2026, no Windows e Python 3.14.6:
 - smoke da CLI: menu abriu e encerrou normalmente;
 - smoke HTTP local: `/health` retornou exatamente `{"status":"ok"}`, home respondeu 200 e CSP
   estava presente;
-- `TestClient`: home, busca mockada, cache, análise temporária, login/logout, sessão, CSRF,
-  autorização, dashboard, vaga/status, candidatura, relatórios, perfil/backup e headers aprovados;
+- `TestClient`: home, busca mockada, cache hit/miss, cooldown, limites público/administrativo,
+  análise temporária, login/logout, sessão, CSRF, autorização, dashboard, vaga/status, candidatura,
+  relatórios, perfil/backup, cards, métricas, salvos e headers aprovados;
 - navegador local: layouts verificados em 360, 768 e 1280 px, sem overflow horizontal; menu móvel,
-  foco de teclado, headings e formulários verificados; nenhum erro ou aviso no console;
-- consulta Adzuna real opcional: executada uma única vez, página 1, cinco resultados, sem cache ou
-  persistência; credenciais não foram mostradas;
+  foco visível de teclado, headings, formulário, filtro, ordenação, salvar/recarregar/listar/remover e
+  atualização da interface verificados; nenhum erro ou aviso no console;
+- consulta Adzuna real opcional: não executada nesta evolução visual; buscas de QA usaram somente o
+  provedor de demonstração e sessões mockadas;
 - `git check-ignore -v .env`: confirmou a regra `.gitignore:1:.env`;
 - `.env` não rastreado;
 - comparação silenciosa de valores secretos locais: zero correspondências em arquivos rastreados e

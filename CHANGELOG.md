@@ -4,6 +4,9 @@
 
 ### Adicionado
 
+- experiência pública responsiva com hero compacto, busca integrada, cards horizontais e painel de
+  métricas do conjunto visível;
+- rota “Vagas salvas” com armazenamento local versionado, limitado e sem vínculo com candidaturas;
 - provedor oficial Adzuna com filtros, paginação, conversão defensiva e retry limitado;
 - cache SQLite com expiração e fallback seguro;
 - migrações versionadas e campos de salário, categoria, contrato e jornada;
@@ -16,6 +19,10 @@
 
 ### Alterado
 
+- rate limiting de busca agora é acionado somente em cache miss, com cooldown público, cotas
+  horárias separadas e relógio injetável para testes;
+- modalidade e ordenação públicas agora são filtros locais e não fragmentam o cache Adzuna;
+- navegação pública e rodapé foram simplificados, mantendo o dashboard isolado nas rotas privadas;
 - CLI agora oferece Adzuna, demonstração e HTTP configurável;
 - serviço de vagas passou a compartilhar busca, cache, análise e persistência entre CLI e web;
 - configuração e documentação foram ampliadas sem incluir valores secretos.

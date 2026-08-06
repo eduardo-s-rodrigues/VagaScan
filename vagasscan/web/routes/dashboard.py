@@ -9,6 +9,8 @@ from vagasscan.file_organizer import OrganizadorArquivos
 from vagasscan.models import ETAPAS_CANDIDATURA, STATUS_VAGAS, Candidatura, Vaga
 from vagasscan.providers import ErroProvedor
 from vagasscan.web.common import (
+    ConsultaLimitadaError,
+    RateRule,
     consulta_da_requisicao,
     contexto,
     exigir_admin,
@@ -65,21 +67,43 @@ async def buscar(request: Request):
         provider_name = str(request.query_params.get("provedor") or "adzuna")
         provider = provedor(request, provider_name, privado=True)
         service = context.vaga_service
-        if (
-            provider_name == "adzuna"
-            and service.cache
-            and service.cache.obter(provider.nome, consulta) is None
-            and not request.app.state.rate_limiter.allow(
-                "adzuna-global", "global", 10, 60
-            )
-        ):
-            raise ErroProvedor(
-                "O limite preventivo de consultas à Adzuna foi atingido. Tente em um minuto.",
-                codigo="limite",
-                transitorio=True,
-                limite=True,
-            )
-        resultado = service.buscar_e_salvar(provider, consulta)
+        gate = None
+        if provider_name in {"adzuna", "http"}:
+            settings = request.app.state.settings
+
+            def autorizar() -> None:
+                rules = [
+                    RateRule(
+                        "admin-search-hour",
+                        str(request.session.get("admin") or "admin"),
+                        settings.admin_search_limit_per_hour,
+                        60 * 60,
+                    )
+                ]
+                if provider_name == "adzuna":
+                    rules.append(RateRule("adzuna-global", "global", 10, 60))
+                retry_after = request.app.state.rate_limiter.reserve(rules)
+                if retry_after:
+                    raise ConsultaLimitadaError(retry_after)
+
+            gate = autorizar
+        resultado = service.buscar_e_salvar(
+            provider,
+            consulta,
+            autorizar_consulta_externa=gate,
+        )
+    except ConsultaLimitadaError as exc:
+        return templates.TemplateResponse(
+            request,
+            "buscar.html",
+            contexto(
+                request,
+                private=True,
+                error=str(exc),
+                retry_after=exc.retry_after,
+            ),
+            status_code=429,
+        )
     except (ValueError, ErroProvedor) as exc:
         return templates.TemplateResponse(
             request,

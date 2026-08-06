@@ -15,11 +15,10 @@
       <a class="brand" href="/" aria-label="VagaScan, página inicial"><span>Vaga</span>Scan</a>
       <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav id="main-nav" class="main-nav" aria-label="Navegação principal">
-        <a href="/buscar">Buscar</a>
-        <a href="/analisar">Analisar descrição</a>
-        {% if authenticated %}
+        {% if private_navigation %}
           <a href="/dashboard">Dashboard</a>
-          <a href="/dashboard/vagas">Vagas salvas</a>
+          <a href="/dashboard/buscar">Buscar</a>
+          <a href="/dashboard/vagas">Vagas no banco</a>
           <a href="/dashboard/candidaturas">Candidaturas</a>
           <a href="/dashboard/relatorios">Relatórios</a>
           <a href="/dashboard/perfil">Perfil</a>
@@ -28,7 +27,8 @@
             <button class="link-button" type="submit">Sair</button>
           </form>
         {% else %}
-          <a href="/login">Área privada</a>
+          <a href="/">Início</a>
+          <a href="/vagas-salvas">Vagas salvas</a>
         {% endif %}
       </nav>
     </div>
@@ -41,9 +41,13 @@
   </main>
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div><strong>VagaScan</strong><p>Projeto educacional em Python para organizar a busca por oportunidades.</p></div>
-      <div><p>A compatibilidade é uma estimativa baseada em regras e palavras-chave.</p><a href="https://github.com/eduardo-s-rodrigues/VagaScan" target="_blank" rel="noopener noreferrer">Ver no GitHub</a></div>
-      <div><p>Vagas fornecidas pela Adzuna quando a integração está ativa.</p><a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></div>
+      <div class="footer-brand"><strong>VagaScan</strong><p>Projeto desenvolvido em Python para pesquisa e análise de vagas de tecnologia.</p></div>
+      <nav class="footer-links" aria-label="Links do projeto">
+        <a href="/#sobre-projeto">Sobre o projeto</a>
+        <a href="https://github.com/eduardo-s-rodrigues/VagaScan" target="_blank" rel="noopener noreferrer">Código no GitHub</a>
+        <a href="https://eduardosrodriguesdev.com.br/" target="_blank" rel="noopener noreferrer">Portfólio</a>
+      </nav>
+      <div class="footer-attribution"><p>Vagas fornecidas pela Adzuna</p><a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></div>
     </div>
   </footer>
 </body>
