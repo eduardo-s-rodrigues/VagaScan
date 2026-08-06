@@ -2,6 +2,47 @@
 
 Este documento prepara uma futura publicação. Nenhum deploy ou DNS é executado pelo projeto.
 
+## Railway: volume persistente
+
+O filesystem de um serviço Railway pode ser substituído em restart/deploy. Crie o volume
+manualmente no painel do projeto e monte-o exatamente em `/app/data`; o VagaScan não cria nem
+anexa volumes automaticamente.
+
+Configure como variáveis do serviço, sem colocar valores reais no Git:
+
+```dotenv
+VAGASSCAN_DATABASE=/app/data/vagasscan.db
+VAGASSCAN_PUBLIC_DATABASE=/app/data/vagasscan_public.db
+VAGASSCAN_DEMO_DATABASE=/app/data/vagasscan_demo.db
+VAGASSCAN_LOG=/app/data/vagasscan.log
+```
+
+O perfil editável também deve ficar em caminho persistente se a edição administrativa for usada;
+o `keywords.json` pode continuar vindo da imagem da aplicação. Antes de liberar tráfego:
+
+1. confirme no painel que o mount path é `/app/data` e que não existe outro volume no mesmo caminho;
+2. inicie com um único processo/worker;
+3. execute a inicialização e confirme que o usuário da aplicação consegue criar, ler e escrever um
+   arquivo no volume, sem tornar permissões globais;
+4. reinicie o serviço e confirme que bancos e log continuam presentes;
+5. valide `/health`, home, busca, cache e área administrativa.
+
+Sem volume, vagas públicas/privadas, candidaturas e cache SQLite podem desaparecer. Com mais de um
+processo, os locks do SQLite e o rate limit em memória deixam de oferecer o contrato suportado.
+
+### Backup e restauração
+
+- prefira a API de backup do SQLite ou pare escritas antes de copiar cada `.db`;
+- mantenha cópia criptografada fora do mesmo volume e registre a data;
+- inclua os três bancos e, quando aplicável, os perfis editáveis;
+- para restaurar, pare o serviço, preserve os arquivos atuais, envie cópias verificadas aos mesmos
+  paths, valide proprietário/permissões, inicie e confira migrações e `/health`;
+- teste a restauração periodicamente em ambiente separado. Backup não testado não é recuperação.
+
+Migre para PostgreSQL antes de usar múltiplas instâncias/workers, escrita concorrente relevante,
+alta disponibilidade ou crescimento que torne backup e lock de arquivo inadequados. O rate limiter
+também deverá migrar para armazenamento compartilhado, como Redis ou gateway.
+
 ## Domínio, subdomínio e hospedagem
 
 - domínio: endereço principal, como `dominio.com.br`;
@@ -47,6 +88,7 @@ propagação e habilite o certificado HTTPS automático antes de ativar cookies 
 - `VAGASSCAN_BASE_URL=https://vagasscan.dominio.com.br`;
 - `VAGASSCAN_COOKIE_SECURE=true`;
 - `VAGASSCAN_PUBLIC_DEMO` conforme o limite de API disponível;
+- `VAGASSCAN_MAX_EXTRA_PAGES_FOR_FILTER=2` e `VAGASSCAN_SAVED_JOBS_LIMIT=200`;
 - `VAGASSCAN_ENABLE_FILE_ORGANIZER_WEB=false`.
 
 Revise a licença, atribuição visual e limites atuais da Adzuna antes da publicação. Não coloque

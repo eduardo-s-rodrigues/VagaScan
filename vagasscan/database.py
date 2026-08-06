@@ -179,5 +179,35 @@ class Database:
                 for statement in CACHE_SCHEMA:
                     connection.execute(statement)
 
+            if 4 not in applied:
+                columns = self._columns(connection, "vagas")
+                additions = {
+                    "modalidade_origem": "TEXT NOT NULL DEFAULT 'não informada'",
+                    "modalidade_confianca": "TEXT NOT NULL DEFAULT 'baixa'",
+                    "modalidade_inferida": "INTEGER NOT NULL DEFAULT 0",
+                    "confianca_analise": "TEXT NOT NULL DEFAULT 'baixa'",
+                    "requisitos_identificados": "INTEGER NOT NULL DEFAULT 0",
+                }
+                for column, definition in additions.items():
+                    if column not in columns:
+                        connection.execute(
+                            f"ALTER TABLE vagas ADD COLUMN {column} {definition}"
+                        )
+                connection.execute(
+                    """UPDATE vagas
+                       SET modalidade_origem = 'VagaScan',
+                           modalidade_confianca = 'baixa',
+                           modalidade_inferida = 1
+                       WHERE fonte = 'adzuna'
+                         AND modalidade NOT IN ('', 'não informada', 'nao informada')"""
+                )
+                connection.execute(
+                    """UPDATE vagas
+                       SET modalidade_origem = 'fonte', modalidade_confianca = 'alta'
+                       WHERE fonte IN ('manual', 'demonstracao')
+                         AND modalidade NOT IN ('', 'não informada', 'nao informada')"""
+                )
+                connection.execute("INSERT INTO schema_migrations(version) VALUES (4)")
+
         with self.connection() as connection:
             connection.execute("PRAGMA optimize")

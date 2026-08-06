@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 
 from vagasscan.config import PROJECT_ROOT, Settings
@@ -279,8 +280,11 @@ def test_web_nao_expoe_credencial_em_erro(web_settings: Settings) -> None:
     missing = replace(web_settings, adzuna_app_id="", adzuna_app_key="")
     with TestClient(create_app(missing, adzuna_session=Session())) as client:
         response = client.get("/buscar?termo=python")
-        assert response.status_code == 400
-        assert "ADZUNA_APP_ID" in response.text
+        assert response.status_code == 503
+        assert "A fonte de vagas ainda não está disponível" in response.text
+        assert "ADZUNA_APP_ID" not in response.text
+        assert "ADZUNA_APP_KEY" not in response.text
+        assert ".env" not in response.text
         assert "app-key-super-secreta" not in response.text
 
 
@@ -320,7 +324,7 @@ def test_busca_publica_conta_apenas_cache_miss_e_exibe_cooldown(
             "/buscar?termo=python&provedor=adzuna&modalidade=presencial&ordem=titulo"
         )
         assert repetida.status_code == 200
-        assert "Nenhuma vaga neste filtro" in repetida.text
+        assert "Nenhuma vaga encontrada com esses filtros" in repetida.text
         assert session.calls == 1
         assert len(application.state.rate_limiter.events) == 2
 
@@ -378,12 +382,13 @@ def test_navegacao_publica_rodape_salvos_e_contrato_local_seguro(
 
         saved = client.get("/vagas-salvas")
         assert saved.status_code == 200
-        assert "As vagas salvas ficam armazenadas apenas neste navegador" in saved.text
+        assert "As vagas salvas ficam apenas neste navegador" in saved.text
         assert 'id="saved-job-template"' in saved.text
 
         script = client.get("/static/js/app.js").text
-        assert "vagasscan.savedJobs.v1" in script
-        assert "MAX_SAVED_JOBS = 100" in script
+        assert "vagasscan.savedJobs.v2" in script
+        assert "data-saved-jobs-limit" in home.text
+        assert "MAX_SAVED_JOBS" in script
         assert ".textContent" in script
         assert "JSON.parse" in script
         assert "localStorage.removeItem" in script
@@ -398,10 +403,189 @@ def test_cards_publicos_resumo_tecnologias_e_salvamento(
         assert response.status_code == 200
         assert 'class="job-card job-card-horizontal"' in response.text
         assert 'class="compatibility-score' in response.text
-        assert "Resumo da sua busca" in response.text
-        assert "Tecnologias mais pedidas" in response.text
+        assert "Resumo destes resultados" in response.text
+        assert "Tecnologias encontradas nestes resultados" in response.text
         assert "Alta compatibilidade" in response.text
         assert "80% ou mais" in response.text
         assert "data-save-job=" in response.text
         assert "Salvar vaga" in response.text
         assert "Vagas fornecidas pela Adzuna" in response.text
+        assert "Confiança da análise" in response.text
+        assert "Modalidade inferida" in response.text
+
+
+def test_busca_preserva_filtros_paginacao_e_estado_de_carregamento(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        response = client.get(
+            "/buscar?termo=python%20junior&localizacao=Brasil&modalidade=remoto"
+            "&ordem=empresa&pagina=2&resultados_por_pagina=10&provedor=adzuna"
+        )
+        assert response.status_code == 200
+        assert 'value="python junior"' in response.text
+        assert 'value="Brasil"' in response.text
+        assert '<option value="remoto" selected>' in response.text
+        assert '<option value="10" selected>' in response.text
+        assert '<option value="empresa" selected>' in response.text
+        assert "pagina=1&resultados_por_pagina=10" in response.text
+        assert 'aria-busy="false"' in response.text
+        assert "data-search-status" in response.text
+        assert "Buscando vagas..." in client.get("/static/js/app.js").text
+
+
+def test_zero_resultados_tem_sugestoes_uteis(web_settings: Settings) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        response = client.get("/buscar?termo=termo-inexistente&provedor=demonstracao")
+        assert response.status_code == 200
+        assert "Nenhuma vaga encontrada com esses filtros" in response.text
+        assert "Remover “Júnior”" in response.text
+        assert "Todas as modalidades" in response.text
+        assert 'href="/buscar?termo=Python"' in response.text
+        assert "Resumo destes resultados" not in response.text
+
+
+def test_detalhe_exibe_explicacao_confianca_e_campos(web_settings: Settings) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        assert client.get("/buscar?termo=python&provedor=adzuna").status_code == 200
+        detail = client.get("/vagas/1")
+        assert detail.status_code == 200
+        for text in (
+            "Compatibilidade estimada",
+            "Confiança da análise",
+            "Pontos compatíveis",
+            "Conhecimentos ausentes",
+            "Requisitos obrigatórios",
+            "Requisitos desejáveis",
+            "Experiência",
+            "Escolaridade",
+            "Idiomas",
+            "Como esta pontuação foi calculada?",
+            "Descrição original",
+            "Origem da modalidade",
+            "Vagas fornecidas pela Adzuna",
+        ):
+            assert text in detail.text
+        assert "data-back-results" in detail.text
+        assert "Abrir vaga original" in detail.text
+
+
+def test_analise_avisa_descricao_truncada_e_confianca_baixa(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        page = client.get("/analisar")
+        response = client.post(
+            "/analisar",
+            data={
+                "csrf_token": csrf(page.text),
+                "descricao": "Python e SQL são requisitos...",
+            },
+        )
+        assert response.status_code == 200
+        assert "Confiança da análise" in response.text
+        assert "Baixa" in response.text
+        assert "Poucos requisitos foram identificados" in response.text
+        assert "Como esta pontuação foi calculada?" in response.text
+
+
+def test_vagas_salvas_tem_schema_importacao_exportacao_e_limites(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        saved = client.get("/vagas-salvas")
+        script = client.get("/static/js/app.js").text
+        assert saved.status_code == 200
+        for marker in (
+            "data-saved-sort",
+            "data-saved-modality",
+            "data-export-json",
+            "data-export-csv",
+            "data-import-json",
+            "data-remove-all",
+            "Você ainda não salvou nenhuma vaga",
+        ):
+            assert marker in saved.text
+        for marker in (
+            "version: 2",
+            "MAX_IMPORT_BYTES",
+            "containsMarkup",
+            "uniqueJobs",
+            "safeCsvCell",
+            "application/json",
+            "text/csv",
+            "window.confirm",
+        ):
+            assert marker in script
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/sobre", "/como-funciona", "/privacidade", "/termos", "/contato"],
+)
+def test_paginas_institucionais_e_seo(path: str, web_settings: Settings) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert '<link rel="canonical"' in response.text
+        assert 'property="og:title"' in response.text
+        assert 'name="twitter:card"' in response.text
+        assert 'name="theme-color"' in response.text
+        assert 'rel="icon"' in response.text
+        assert 'rel="manifest"' in response.text
+
+
+def test_robots_sitemap_e_arquivos_estaticos(web_settings: Settings) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        robots = client.get("/robots.txt")
+        sitemap = client.get("/sitemap.xml")
+        assert robots.status_code == 200
+        assert "Disallow: /dashboard" in robots.text
+        assert "Sitemap:" in robots.text
+        assert sitemap.status_code == 200
+        assert "<loc>http://127.0.0.1:8000/sobre</loc>" in sitemap.text
+        assert client.get("/static/img/favicon.svg").status_code == 200
+        assert client.get("/static/img/social-card.svg").status_code == 200
+        manifest = client.get("/static/manifest.webmanifest")
+        assert manifest.status_code == 200
+        assert manifest.json()["name"] == "VagaScan"
+        assert manifest.json()["lang"] == "pt-BR"
+
+
+def test_rate_limit_de_analise_e_busca_usam_escopos_separados(
+    web_settings: Settings,
+) -> None:
+    with TestClient(create_app(web_settings, adzuna_session=Session())) as client:
+        page = client.get("/analisar")
+        analysis = client.post(
+            "/analisar",
+            data={"csrf_token": csrf(page.text), "descricao": "Python e SQL"},
+        )
+        search = client.get("/buscar?termo=python&provedor=adzuna")
+        assert analysis.status_code == search.status_code == 200
+        scopes = {scope for scope, _ in client.app.state.rate_limiter.events}
+        assert "public-analysis-minute" in scopes
+        assert "public-search-hour" in scopes
+
+
+def test_erros_publicos_de_timeout_e_limite_sao_genericos(web_settings: Settings) -> None:
+    class TimeoutSession:
+        def get(self, *args: Any, **kwargs: Any) -> Any:
+            raise requests.Timeout("ADZUNA_APP_KEY=nao-expor")
+
+    class LimitResponse:
+        status_code = 429
+
+    class LimitSession:
+        def get(self, *args: Any, **kwargs: Any) -> Any:
+            return LimitResponse()
+
+    with TestClient(create_app(web_settings, adzuna_session=TimeoutSession())) as client:
+        timeout = client.get("/buscar?termo=timeout")
+        assert timeout.status_code == 503
+        assert "A consulta demorou mais do que o esperado" in timeout.text
+        assert "ADZUNA_APP_KEY" not in timeout.text
+    with TestClient(create_app(web_settings, adzuna_session=LimitSession())) as client:
+        limit = client.get("/buscar?termo=limite")
+        assert limit.status_code == 503
+        assert "atingiu um limite temporário" in limit.text

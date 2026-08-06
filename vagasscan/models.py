@@ -51,6 +51,11 @@ class Vaga:
     tipo_contrato: str = ""
     jornada: str = ""
     id: int | None = None
+    modalidade_origem: str = "não informada"
+    modalidade_confianca: str = "baixa"
+    modalidade_inferida: bool = False
+    confianca_analise: str = "baixa"
+    requisitos_identificados: int = 0
 
 
 @dataclass(slots=True)
@@ -65,6 +70,7 @@ class ConsultaVagas:
     ordenacao: str = "relevance"
     distancia_km: int | None = None
     pais: str = "br"
+    modalidade: str = ""
 
 
 @dataclass(slots=True)
@@ -77,6 +83,8 @@ class ResultadoBusca:
     cache_desatualizado: bool = False
     cache_expira_em: str | None = None
     erros: list[str] = field(default_factory=list)
+    cache_criado_em: str | None = None
+    paginas_analisadas: int = 1
 
 
 @dataclass(slots=True)
@@ -96,6 +104,20 @@ class ResultadoCompatibilidade:
     conhecimentos_ausentes: list[str] = field(default_factory=list)
     confirmar: list[str] = field(default_factory=list)
     justificativa: str = ""
+    confianca: str = "baixa"
+    confianca_pontos: int = 0
+    requisitos_identificados: int = 0
+    requisitos_tecnicos: int = 0
+    descricao_possivelmente_truncada: bool = False
+    componentes: dict[str, float] = field(default_factory=dict)
+    penalidades: list[str] = field(default_factory=list)
+    fatores_positivos: list[str] = field(default_factory=list)
+    fatores_negativos: list[str] = field(default_factory=list)
+    requisitos_obrigatorios: list[str] = field(default_factory=list)
+    requisitos_desejaveis: list[str] = field(default_factory=list)
+    escolaridade_identificada: list[str] = field(default_factory=list)
+    experiencia_identificada: list[str] = field(default_factory=list)
+    idiomas_identificados: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

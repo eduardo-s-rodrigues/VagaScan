@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">VagaScan</title>
+  <desc id="desc">Busque, compare e entenda vagas de tecnologia.</desc>
+  <rect width="1200" height="630" fill="#081a33"/>
+  <circle cx="1060" cy="88" r="230" fill="#102a4d"/>
+  <circle cx="110" cy="620" r="260" fill="#0d315a"/>
+  <rect x="82" y="82" width="94" height="94" rx="22" fill="#1677e8"/>
+  <path d="M104 108h16l9 40 10-40h16l-17 53h-19l-15-53Z" fill="#fff"/>
+  <text x="202" y="151" fill="#fff" font-family="Arial, sans-serif" font-size="64" font-weight="700">Vaga<tspan fill="#63aeff">Scan</tspan></text>
+  <text x="82" y="310" fill="#fff" font-family="Arial, sans-serif" font-size="66" font-weight="700">Vagas de tecnologia,</text>
+  <text x="82" y="390" fill="#63aeff" font-family="Arial, sans-serif" font-size="66" font-weight="700">com análise explicável.</text>
+  <text x="86" y="480" fill="#c3d4e8" font-family="Arial, sans-serif" font-size="31">Busque, compare requisitos e entenda a confiança da análise.</text>
+</svg>

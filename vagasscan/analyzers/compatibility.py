@@ -58,6 +58,80 @@ def _requisitos_unicos(requisitos: list[Requisito]) -> list[Requisito]:
 class CalculadoraCompatibilidade:
     """Calcula 0-100: técnica 55, área 15, nível 10, local 10, experiência 5, formação 5."""
 
+    CATEGORIAS_NAO_TECNICAS = {
+        "escolaridade",
+        "experiência",
+        "idiomas",
+        "habilidades comportamentais",
+    }
+
+    @staticmethod
+    def descricao_possivelmente_truncada(descricao: str) -> bool:
+        texto = descricao.strip()
+        if not texto:
+            return False
+        if texto.endswith(("...", "…")) or re.search(
+            r"\b(?:continue lendo|leia mais|ver mais)\s*$", normalizar_texto(texto)
+        ):
+            return True
+        return len(texto) >= 1_800 and texto[-1] not in ".!?)]}"
+
+    @classmethod
+    def _calcular_confianca(
+        cls,
+        *,
+        requisitos: list[Requisito],
+        requisitos_tecnicos: list[Requisito],
+        descricao: str,
+        nivel_informado: bool,
+        anos_exigidos: int,
+    ) -> tuple[str, int, bool]:
+        """Combina volume de evidência, diversidade dos campos e qualidade do texto.
+
+        Quantidade é um guardrail: até dois requisitos nunca gera confiança média/alta e alta
+        exige ao menos seis. Dentro dessas faixas, descrição, obrigatoriedade, formação,
+        experiência, nível, evidência técnica e truncamento decidem o resultado.
+        """
+
+        total = len(requisitos)
+        tecnicos = len(requisitos_tecnicos)
+        tem_obrigatorio = any(item.peso >= 1.5 for item in requisitos)
+        tem_escolaridade = any(item.categoria == "escolaridade" for item in requisitos)
+        tem_experiencia = anos_exigidos > 0 or any(
+            item.categoria == "experiência" for item in requisitos
+        )
+        tamanho = len(descricao.strip())
+        qualidade_descricao = (
+            10 if tamanho >= 800 else 6 if tamanho >= 350 else 3 if tamanho >= 160 else 0
+        )
+        truncada = cls.descricao_possivelmente_truncada(descricao)
+        evidencias = (
+            total > 0,
+            tecnicos > 0,
+            tem_obrigatorio,
+            tem_escolaridade,
+            tem_experiencia,
+            nivel_informado,
+            qualidade_descricao >= 6,
+        )
+        cobertura = round(10 * sum(evidencias) / len(evidencias))
+        pontos = min(total, 6) * 7
+        pontos += min(tecnicos, 5) * 2
+        pontos += 8 if tem_obrigatorio else 0
+        pontos += 5 if tem_escolaridade else 0
+        pontos += 5 if tem_experiencia else 0
+        pontos += 5 if nivel_informado else 0
+        pontos += qualidade_descricao + cobertura
+        if truncada:
+            pontos -= 15
+        pontos = max(0, min(100, round(pontos)))
+
+        if total <= 2 or pontos < 40:
+            return "baixa", pontos, truncada
+        if total <= 5 or pontos < 72:
+            return "média", pontos, truncada
+        return "alta", pontos, truncada
+
     def calcular(
         self, vaga: Vaga | dict[str, Any], requisitos: list[Requisito], perfil: dict[str, Any]
     ) -> ResultadoCompatibilidade:
@@ -72,18 +146,23 @@ class CalculadoraCompatibilidade:
 
         requisitos = _requisitos_unicos(requisitos)
         requisitos_tecnicos = [
-            item
-            for item in requisitos
-            if item.categoria not in {"escolaridade", "experiência"}
+            item for item in requisitos if item.categoria not in self.CATEGORIAS_NAO_TECNICAS
         ]
         peso_total = sum(item.peso for item in requisitos_tecnicos)
         peso_compativel = sum(
             item.peso for item in requisitos_tecnicos if item.encontrado_no_perfil
         )
-        tecnica = 55.0 * peso_compativel / peso_total if peso_total else 27.5
+        tecnica_bruta = 55.0 * peso_compativel / peso_total if peso_total else 27.5
 
         area_ok = _area_compativel(titulo, descricao, perfil.get("areas_desejadas", []))
         texto_nivel = normalizar_texto(f"{titulo} {nivel}")
+        nivel_informado = bool(
+            nivel.strip()
+            and normalizar_texto(nivel) not in {"nao informado", "nao informada"}
+        ) or any(
+            termo in texto_nivel
+            for termo in ("estagio", "junior", "pleno", "senior", "especialista", "lead")
+        )
         nivel_ok = _contem_algum(texto_nivel, perfil.get("niveis_desejados", []))
         penalidade_nivel = 0.0
         nivel_acima = ""
@@ -110,6 +189,22 @@ class CalculadoraCompatibilidade:
         anos_exigidos = max(anos_encontrados, default=0)
         anos_perfil = int(perfil.get("experiencia_anos", 0))
         experiencia = 5.0 if anos_exigidos <= anos_perfil else max(0.0, 5.0 - anos_exigidos)
+
+        confianca, confianca_pontos, descricao_truncada = self._calcular_confianca(
+            requisitos=requisitos,
+            requisitos_tecnicos=requisitos_tecnicos,
+            descricao=descricao,
+            nivel_informado=nivel_informado,
+            anos_exigidos=anos_exigidos,
+        )
+        tecnica = tecnica_bruta
+        parcela_tecnica_limitada = False
+        if len(requisitos_tecnicos) <= 2:
+            tecnica = min(tecnica, 42.0)
+            parcela_tecnica_limitada = tecnica < tecnica_bruta
+        elif confianca == "baixa":
+            tecnica = min(tecnica, 45.0)
+            parcela_tecnica_limitada = tecnica < tecnica_bruta
 
         exige_superior = _contem_algum(descricao, ["ensino superior", "graduação", "faculdade"])
         exige_superior_completo = _contem_algum(
@@ -149,6 +244,48 @@ class CalculadoraCompatibilidade:
             confirmar.append("Formação superior completa")
         if not requisitos_tecnicos:
             confirmar.append("Requisitos técnicos não identificados automaticamente")
+        if confianca == "baixa":
+            confirmar.append(
+                "Poucos requisitos foram identificados; revise a descrição manualmente"
+            )
+        if descricao_truncada:
+            confirmar.append("A descrição pode estar truncada na fonte")
+        if parcela_tecnica_limitada:
+            confirmar.append("Parcela técnica limitada por evidência insuficiente")
+
+        obrigatorios = [item.requisito for item in requisitos if item.peso >= 1.5]
+        desejaveis = [item.requisito for item in requisitos if item.peso <= 0.75]
+        escolaridade = [
+            item.requisito for item in requisitos if item.categoria == "escolaridade"
+        ]
+        experiencia_identificada = [
+            item.requisito for item in requisitos if item.categoria == "experiência"
+        ]
+        idiomas = [item.requisito for item in requisitos if item.categoria == "idiomas"]
+        penalidades: list[str] = []
+        if penalidade_nivel:
+            penalidades.append(f"Nível acima do perfil: -{penalidade_nivel:.0f} pontos")
+
+        positivos: list[str] = []
+        negativos: list[str] = []
+        if compativeis:
+            positivos.append(f"{len(compativeis)} requisito(s) técnico(s) compatível(is)")
+        if area_ok:
+            positivos.append("Área da vaga alinhada ao perfil")
+        if nivel_ok:
+            positivos.append("Nível alinhado ao perfil")
+        if local_ok:
+            positivos.append("Localização ou modalidade alinhada ao perfil")
+        if ausentes:
+            negativos.append(f"{len(ausentes)} conhecimento(s) técnico(s) não encontrado(s)")
+        if not area_ok:
+            negativos.append("Aderência à área não identificada")
+        if not local_ok:
+            negativos.append("Localização ou modalidade não alinhada/não informada")
+        if parcela_tecnica_limitada:
+            negativos.append("Evidência técnica insuficiente para usar os 55 pontos")
+        if descricao_truncada:
+            negativos.append("Descrição possivelmente truncada")
         justificativa = (
             f"Técnica {tecnica:.1f}/55; área "
             f"{'compatível' if area_ok else 'não identificada'}; nível "
@@ -163,4 +300,26 @@ class CalculadoraCompatibilidade:
             conhecimentos_ausentes=ausentes,
             confirmar=confirmar,
             justificativa=justificativa,
+            confianca=confianca,
+            confianca_pontos=confianca_pontos,
+            requisitos_identificados=len(requisitos),
+            requisitos_tecnicos=len(requisitos_tecnicos),
+            descricao_possivelmente_truncada=descricao_truncada,
+            componentes={
+                "tecnica": round(tecnica, 1),
+                "area": 15.0 if area_ok else 0.0,
+                "nivel": 10.0 if nivel_ok else 0.0,
+                "localizacao_modalidade": 10.0 if local_ok else 0.0,
+                "experiencia": round(experiencia, 1),
+                "formacao": round(pontos_formacao, 1),
+                "penalidades": round(penalidade_nivel, 1),
+            },
+            penalidades=penalidades,
+            fatores_positivos=positivos,
+            fatores_negativos=negativos,
+            requisitos_obrigatorios=obrigatorios,
+            requisitos_desejaveis=desejaveis,
+            escolaridade_identificada=escolaridade,
+            experiencia_identificada=experiencia_identificada,
+            idiomas_identificados=idiomas,
         )

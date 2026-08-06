@@ -7,6 +7,7 @@ from typing import Any
 
 import requests
 
+from vagasscan.analyzers.modality import classificar_modalidade, modalidade_corresponde
 from vagasscan.config import Settings
 from vagasscan.models import ConsultaVagas, ResultadoBusca, Vaga
 from vagasscan.providers.base import ErroProvedor, ProvedorNaoConfigurado, ProvedorVagas
@@ -95,8 +96,6 @@ class ProvedorAdzuna(ProvedorVagas):
                 erros.append(f"Resultado {indice} ignorado por formato inválido.")
                 continue
             vagas.append(self._converter(item))
-        if consulta.remoto:
-            vagas = [vaga for vaga in vagas if self._eh_remota(vaga)]
         return ResultadoBusca(
             vagas=vagas,
             pagina=consulta.pagina,
@@ -208,7 +207,9 @@ class ProvedorAdzuna(ProvedorVagas):
         titulo = str(item.get("title") or "Título não informado").strip()
         descricao = str(item.get("description") or "Descrição não informada.").strip()
         texto = normalizar_texto(f"{titulo} {local} {descricao}")
-        modalidade = cls._inferir_modalidade(texto)
+        modalidade = classificar_modalidade(
+            titulo, local, descricao, item_fonte=item
+        )
         nivel = cls._inferir_nivel(texto)
         categoria = item.get("category")
         if isinstance(categoria, dict):
@@ -218,7 +219,7 @@ class ProvedorAdzuna(ProvedorVagas):
             empresa=empresa,
             localizacao=local,
             descricao=descricao,
-            modalidade=modalidade,
+            modalidade=modalidade.valor,
             nivel=nivel,
             link=url_http_segura(
                 item.get("redirect_url") or item.get("url") or item.get("link")
@@ -231,6 +232,9 @@ class ProvedorAdzuna(ProvedorVagas):
             categoria=str(categoria or "").strip(),
             tipo_contrato=str(item.get("contract_type") or "").strip(),
             jornada=str(item.get("contract_time") or "").strip(),
+            modalidade_origem=modalidade.origem,
+            modalidade_confianca=modalidade.confianca,
+            modalidade_inferida=modalidade.inferida,
         )
 
     @staticmethod
@@ -256,13 +260,7 @@ class ProvedorAdzuna(ProvedorVagas):
 
     @staticmethod
     def _inferir_modalidade(texto: str) -> str:
-        if any(item in texto for item in ("remoto", "remote", "home office")):
-            return "remoto"
-        if any(item in texto for item in ("hibrido", "hybrid")):
-            return "híbrido"
-        if any(item in texto for item in ("presencial", "on-site", "onsite")):
-            return "presencial"
-        return "não informada"
+        return classificar_modalidade("", "", texto).valor
 
     @staticmethod
     def _inferir_nivel(texto: str) -> str:
@@ -278,7 +276,4 @@ class ProvedorAdzuna(ProvedorVagas):
 
     @staticmethod
     def _eh_remota(vaga: Vaga) -> bool:
-        texto = normalizar_texto(
-            f"{vaga.titulo} {vaga.localizacao} {vaga.modalidade} {vaga.descricao}"
-        )
-        return any(item in texto for item in ("remoto", "remote", "home office"))
+        return modalidade_corresponde(vaga.modalidade, "remoto")

@@ -10,8 +10,10 @@
   {% for item in resultado.itens %}
     {% set vaga = item.vaga %}
     <article class="job-card">
-      <div class="job-top"><span class="source">{{ vaga.fonte }}</span><span class="score">{{ '%.1f'|format(vaga.compatibilidade or 0) }}%</span></div>
-      <h2>{{ vaga.titulo }}</h2><p class="company">{{ vaga.empresa }}</p><p class="metadata">{{ vaga.localizacao }} • {{ vaga.modalidade }} • {{ vaga.nivel }}</p>
+      <div class="job-top"><span class="source">{{ vaga.fonte }}</span><span class="score"><span class="sr-only">Compatibilidade: </span>{{ '%.1f'|format(vaga.compatibilidade or 0) }}%</span></div>
+      <h2><a href="{% if private %}/dashboard{% endif %}/vagas/{{ item.vaga_id }}">{{ vaga.titulo }}</a></h2><p class="company">{{ vaga.empresa }}</p><p class="metadata">{{ vaga.localizacao }} • {{ vaga.modalidade }} • {{ vaga.nivel }}</p>
+      <p class="confidence confidence-{{ item.analise.confianca_analise }}">Confiança da análise: <strong>{{ item.analise.confianca_analise }}</strong> • {{ item.analise.requisitos_identificados }} requisitos identificados</p>
+      {% if item.analise.confianca_analise == 'baixa' %}<p class="small warning-inline">Poucos requisitos foram identificados. Revise a vaga manualmente.</p>{% endif %}
       {% if vaga.data_publicacao %}<p class="small">Publicada em {{ vaga.data_publicacao[:10] }}</p>{% endif %}
       <div class="match-columns"><div><strong>Compatíveis</strong><p>{{ item.analise.pontos_compativeis[:3]|join(', ') or 'Nenhum detectado' }}</p></div><div><strong>A desenvolver</strong><p>{{ item.analise.conhecimentos_ausentes[:3]|join(', ') or 'Nenhum detectado' }}</p></div></div>
       {% if vaga.fonte == 'adzuna' %}<p class="attribution">Vagas fornecidas pela Adzuna • <a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></p>{% endif %}

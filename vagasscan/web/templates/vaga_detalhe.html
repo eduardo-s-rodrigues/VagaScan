@@ -1,17 +1,73 @@
 {% extends "base.html" %}
+{% set meta_description = "Veja requisitos, compatibilidade, confiança e detalhes da vaga " ~ vaga.titulo ~ "." %}
 {% block title %}{{ vaga.titulo }} — VagaScan{% endblock %}
 {% block content %}
-<section class="page-header"><div class="container"><p class="eyebrow">{{ vaga.fonte }}</p><h1>{{ vaga.titulo }}</h1><p>{{ vaga.empresa }} • {{ vaga.localizacao }}</p></div></section>
+<section class="page-header detail-header">
+  <div class="container">
+    <div class="detail-title-row">
+      <div class="company-avatar company-avatar-large" aria-hidden="true">{{ iniciais_empresa(vaga.empresa) }}</div>
+      <div><p class="eyebrow">{{ 'VAGA FORNECIDA PELA ADZUNA' if vaga.fonte == 'adzuna' else vaga.fonte|upper }}</p><h1>{{ vaga.titulo }}</h1><p>{{ vaga.empresa }} <span aria-hidden="true">•</span> {{ vaga.localizacao }}</p></div>
+    </div>
+    <div class="header-actions"><a class="button button-secondary" href="/buscar" data-back-results>Voltar aos resultados</a>{% if not private %}<button class="save-job-button button button-quiet" type="button" data-save-job='{{ salvar_payload|tojson|forceescape }}' aria-pressed="false">Salvar vaga</button>{% endif %}{% if url_http_segura(vaga.link) %}<a class="button" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}</div>
+  </div>
+</section>
 <section class="section"><div class="container detail-grid">
   <article class="detail-main">
-    <div class="score-panel"><span>Compatibilidade estimada</span><strong>{{ '%.1f'|format(vaga.compatibilidade or 0) }}%</strong></div>
-    <h2>Descrição</h2><div class="description">{{ vaga.descricao }}</div>
-    <h2>Requisitos extraídos</h2><div class="tags">{% for item in requisitos %}<span class="tag {% if item.encontrado_no_perfil %}tag-ok{% endif %}">{{ item.requisito }} · {{ item.categoria }}</span>{% else %}<p>Nenhum requisito identificado automaticamente.</p>{% endfor %}</div>
-    {% if analise %}<div class="match-columns"><div><strong>Pontos positivos</strong><p>{{ analise.pontos_compativeis|join(', ') or 'Nenhum detectado' }}</p></div><div><strong>Conhecimentos ausentes</strong><p>{{ analise.conhecimentos_ausentes|join(', ') or 'Nenhum detectado' }}</p></div></div><div class="result-block"><strong>Requisitos para confirmar manualmente</strong><p>{{ analise.confirmar|join(', ') or 'Nenhum item' }}</p></div><div class="result-block"><strong>Justificativa da pontuação</strong><p>{{ analise.justificativa }}</p></div>{% endif %}
-    <div class="notice"><strong>Como interpretar</strong><p>A compatibilidade é uma estimativa baseada em regras e palavras-chave. Ela não garante aprovação em processo seletivo.</p></div>
+    <section class="analysis-overview" aria-labelledby="analysis-title">
+      <div class="score-panel score-panel-detailed"><div><span id="analysis-title">Compatibilidade estimada</span><strong>{{ '%.1f'|format(analise.pontuacao) }}%</strong></div><div><span>Confiança da análise</span><strong class="confidence-text confidence-{{ analise.confianca }}">{{ analise.confianca|capitalize }}</strong><small>{{ analise.requisitos_identificados }} requisito(s) identificado(s)</small></div></div>
+      {% if analise.confianca == 'baixa' %}<div class="low-confidence-warning prominent-warning" role="note"><strong>Análise com pouca evidência</strong><span>Poucos requisitos foram identificados na descrição. Revise a vaga manualmente antes de tomar uma decisão.</span></div>{% endif %}
+      {% if analise.descricao_possivelmente_truncada %}<div class="alert" role="note"><strong>Descrição possivelmente truncada.</strong> Confirme os requisitos na vaga original.</div>{% endif %}
+    </section>
+
+    <section class="detail-section"><h2>Pontos compatíveis</h2><div class="tags">{% for item in analise.pontos_compativeis %}<span class="tag tag-ok">{{ item }}</span>{% else %}<p>Nenhum ponto técnico compatível foi identificado automaticamente.</p>{% endfor %}</div></section>
+    <section class="detail-section"><h2>Conhecimentos ausentes</h2><div class="tags">{% for item in analise.conhecimentos_ausentes %}<span class="tag tag-missing">{{ item }}</span>{% else %}<p>Nenhum conhecimento ausente foi identificado automaticamente.</p>{% endfor %}</div></section>
+
+    <div class="detail-two-columns">
+      <section class="panel"><h2>Requisitos obrigatórios</h2><ul class="plain-list">{% for item in analise.requisitos_obrigatorios %}<li>{{ item }}</li>{% else %}<li>Não identificados na descrição.</li>{% endfor %}</ul></section>
+      <section class="panel"><h2>Requisitos desejáveis</h2><ul class="plain-list">{% for item in analise.requisitos_desejaveis %}<li>{{ item }}</li>{% else %}<li>Não identificados na descrição.</li>{% endfor %}</ul></section>
+      <section class="panel"><h2>Experiência</h2><p>{{ analise.experiencia_identificada|join(', ') or 'Não identificada na descrição.' }}</p></section>
+      <section class="panel"><h2>Escolaridade</h2><p>{{ analise.escolaridade_identificada|join(', ') or 'Não identificada na descrição.' }}</p></section>
+      <section class="panel"><h2>Idiomas</h2><p>{{ analise.idiomas_identificados|join(', ') or 'Não identificados na descrição.' }}</p></section>
+      <section class="panel"><h2>Itens para confirmação manual</h2><ul class="plain-list">{% for item in analise.confirmar %}<li>{{ item }}</li>{% else %}<li>Nenhum item adicional.</li>{% endfor %}</ul></section>
+    </div>
+
+    <section class="detail-section"><h2>Por que esta vaga recebeu essa nota?</h2><div class="factor-grid"><div><h3>Fatores positivos</h3><ul class="plain-list">{% for item in analise.fatores_positivos %}<li>{{ item }}</li>{% else %}<li>Nenhum fator positivo identificado.</li>{% endfor %}</ul></div><div><h3>Fatores negativos</h3><ul class="plain-list">{% for item in analise.fatores_negativos %}<li>{{ item }}</li>{% else %}<li>Nenhum fator negativo identificado.</li>{% endfor %}</ul></div></div><p class="justification">{{ analise.justificativa }}</p></section>
+
+    <details class="score-explanation">
+      <summary>Como esta pontuação foi calculada?</summary>
+      <p>A nota combina aderência técnica, área, nível, localização ou modalidade, experiência e formação. Penalidades explícitas são descontadas. A confiança é separada: ela mede a quantidade e a qualidade das evidências disponíveis, não o quanto a vaga combina com o perfil.</p>
+      <div class="component-grid">
+        <div><span>Pontuação técnica</span><strong>{{ '%.1f'|format(analise.componentes.tecnica) }}/55</strong></div>
+        <div><span>Aderência à área</span><strong>{{ '%.1f'|format(analise.componentes.area) }}/15</strong></div>
+        <div><span>Nível</span><strong>{{ '%.1f'|format(analise.componentes.nivel) }}/10</strong></div>
+        <div><span>Localização/modalidade</span><strong>{{ '%.1f'|format(analise.componentes.localizacao_modalidade) }}/10</strong></div>
+        <div><span>Experiência</span><strong>{{ '%.1f'|format(analise.componentes.experiencia) }}/5</strong></div>
+        <div><span>Formação</span><strong>{{ '%.1f'|format(analise.componentes.formacao) }}/5</strong></div>
+        <div><span>Penalidades</span><strong>-{{ '%.1f'|format(analise.componentes.penalidades) }}</strong></div>
+      </div>
+      {% if analise.penalidades %}<ul class="plain-list">{% for item in analise.penalidades %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+    </details>
+
+    <section class="detail-section original-description"><h2>Descrição original</h2><div class="description">{{ vaga.descricao }}</div></section>
+    <div class="notice"><strong>Como interpretar</strong><p>A compatibilidade é uma estimativa baseada em regras. A confiança indica a robustez da evidência; nenhuma das duas garante aprovação.</p></div>
     {% if vaga.fonte == 'adzuna' %}<div class="attribution-box"><p>Vagas fornecidas pela Adzuna.</p><a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></div>{% endif %}
   </article>
-  <aside class="detail-aside"><h2>Informações</h2><dl><dt>Empresa</dt><dd>{{ vaga.empresa }}</dd><dt>Localização</dt><dd>{{ vaga.localizacao }}</dd><dt>Modalidade</dt><dd>{{ vaga.modalidade }}</dd><dt>Nível</dt><dd>{{ vaga.nivel }}</dd><dt>Contrato</dt><dd>{{ vaga.tipo_contrato or 'Não informado' }}</dd><dt>Jornada</dt><dd>{{ vaga.jornada or 'Não informada' }}</dd><dt>Categoria</dt><dd>{{ vaga.categoria or 'Não informada' }}</dd><dt>Salário</dt><dd>{% if vaga.salario_min or vaga.salario_max %}{{ vaga.salario_min or '—' }} a {{ vaga.salario_max or '—' }}{% else %}Não informado{% endif %}</dd></dl>{% if url_http_segura(vaga.link) %}<a class="button full" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga original</a>{% endif %}{% if not private %}<button class="save-job-button button button-quiet full" type="button" data-save-job='{{ salvar_payload|tojson|forceescape }}' aria-pressed="false">Salvar vaga</button>{% endif %}
+  <aside class="detail-aside"><h2>Informações da vaga</h2><dl>
+    <dt>Empresa</dt><dd>{{ vaga.empresa }}</dd>
+    <dt>Localização</dt><dd>{{ vaga.localizacao }}</dd>
+    <dt>Modalidade</dt><dd>{{ vaga.modalidade|capitalize }}</dd>
+    <dt>Origem da modalidade</dt><dd>{% if vaga.modalidade_origem == 'fonte' %}Informada pela fonte{% elif vaga.modalidade_inferida %}Inferida pelo VagaScan <span class="help-text">a partir do título e da descrição</span>{% else %}Não informada{% endif %}</dd>
+    <dt>Nível</dt><dd>{{ vaga.nivel }}</dd>
+    <dt>Data</dt><dd>{% if vaga.data_publicacao %}<time datetime="{{ vaga.data_publicacao }}">{{ formatar_data_brasileira(vaga.data_publicacao) }}</time>{% if tempo_decorrido(vaga.data_publicacao) %} <span class="help-text">{{ tempo_decorrido(vaga.data_publicacao) }}</span>{% endif %}{% else %}Não informada{% endif %}</dd>
+    <dt>Salário</dt><dd>{% if vaga.salario_min or vaga.salario_max %}{% if vaga.salario_min %}R$ {{ '%.2f'|format(vaga.salario_min)|replace('.', ',') }}{% else %}—{% endif %} a {% if vaga.salario_max %}R$ {{ '%.2f'|format(vaga.salario_max)|replace('.', ',') }}{% else %}—{% endif %}{% else %}Não informado <span class="help-text">Confirme na vaga original.</span>{% endif %}</dd>
+    <dt>Contrato</dt><dd>{{ vaga.tipo_contrato or 'Não informado' }}</dd>
+    <dt>Jornada</dt><dd>{{ vaga.jornada or 'Não informada' }}</dd>
+    <dt>Categoria</dt><dd>{{ vaga.categoria or 'Não informada' }}</dd>
+    <dt>Fonte</dt><dd>{{ 'Adzuna' if vaga.fonte == 'adzuna' else vaga.fonte }}</dd>
+  </dl>
+  {% if url_http_segura(vaga.link) %}<a class="button full" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga original</a>{% endif %}
+  {% if not private %}<button class="save-job-button button button-quiet full" type="button" data-save-job='{{ salvar_payload|tojson|forceescape }}' aria-pressed="false">Salvar vaga</button>{% endif %}
+  <a class="button button-secondary full" href="/buscar" data-back-results>Voltar aos resultados</a>
   {% if private %}<form method="post" action="/dashboard/vagas/{{ vaga.id }}/interessante"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary full" type="submit">Marcar como interessante</button></form><form method="post" action="/dashboard/vagas/{{ vaga.id }}/status" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label for="status">Atualizar status</label><select id="status" name="status">{% for status in statuses %}<option value="{{ status }}" {% if status == vaga.status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select><label for="observacao">Observação</label><input id="observacao" name="observacao" maxlength="1000"><button class="button full" type="submit">Salvar status</button></form>{% endif %}</aside>
 </div></section>
 {% endblock %}

@@ -39,6 +39,19 @@ class VagaRepository:
         vaga.empresa = str(vaga.empresa or "").strip() or "Não informada"
         vaga.localizacao = str(vaga.localizacao or "").strip() or "Não informada"
         vaga.modalidade = str(vaga.modalidade or "").strip() or "não informada"
+        vaga.modalidade_origem = (
+            str(vaga.modalidade_origem or "").strip() or "não informada"
+        )
+        if vaga.modalidade != "não informada" and vaga.modalidade_origem == "não informada":
+            vaga.modalidade_origem = "fonte"
+            vaga.modalidade_confianca = "alta"
+            vaga.modalidade_inferida = False
+        if vaga.modalidade_origem not in {"fonte", "VagaScan", "não informada"}:
+            raise ValueError("Origem da modalidade inválida.")
+        vaga.modalidade_confianca = str(vaga.modalidade_confianca or "baixa").lower()
+        if vaga.modalidade_confianca not in {"baixa", "média", "alta"}:
+            raise ValueError("Confiança da modalidade inválida.")
+        vaga.modalidade_inferida = bool(vaga.modalidade_inferida)
         vaga.nivel = str(vaga.nivel or "").strip() or "não informado"
         vaga.fonte = str(vaga.fonte or "").strip() or "manual"
         vaga.link = str(vaga.link or "").strip()
@@ -53,6 +66,13 @@ class VagaRepository:
                 raise ValueError("A compatibilidade deve ser um número entre 0 e 100.") from exc
             if not math.isfinite(vaga.compatibilidade) or not 0 <= vaga.compatibilidade <= 100:
                 raise ValueError("A compatibilidade deve estar entre 0 e 100.")
+        vaga.confianca_analise = str(vaga.confianca_analise or "baixa").lower()
+        if vaga.confianca_analise not in {"baixa", "média", "alta"}:
+            raise ValueError("Confiança da análise inválida.")
+        try:
+            vaga.requisitos_identificados = max(0, int(vaga.requisitos_identificados or 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Quantidade de requisitos inválida.") from exc
         for campo in ("salario_min", "salario_max"):
             valor = getattr(vaga, campo)
             if valor is None:
@@ -128,8 +148,11 @@ class VagaRepository:
                 titulo, empresa, localizacao, modalidade, nivel, descricao, link,
                 link_normalizado, fonte, identificador_externo, chave_conteudo,
                 data_publicacao, compatibilidade, status, observacoes,
-                salario_min, salario_max, categoria, tipo_contrato, jornada
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                salario_min, salario_max, categoria, tipo_contrato, jornada,
+                modalidade_origem, modalidade_confianca, modalidade_inferida,
+                confianca_analise, requisitos_identificados
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                      ?, ?, ?, ?, ?)
         """
         valores = self._valores_insert(vaga)
         try:
@@ -164,8 +187,11 @@ class VagaRepository:
                 titulo, empresa, localizacao, modalidade, nivel, descricao, link,
                 link_normalizado, fonte, identificador_externo, chave_conteudo,
                 data_publicacao, compatibilidade, status, observacoes,
-                salario_min, salario_max, categoria, tipo_contrato, jornada
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                salario_min, salario_max, categoria, tipo_contrato, jornada,
+                modalidade_origem, modalidade_confianca, modalidade_inferida,
+                confianca_analise, requisitos_identificados
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                      ?, ?, ?, ?, ?)
         """
         try:
             with self.database.transaction() as connection:
@@ -200,6 +226,11 @@ class VagaRepository:
             vaga.categoria,
             vaga.tipo_contrato,
             vaga.jornada,
+            vaga.modalidade_origem,
+            vaga.modalidade_confianca,
+            int(vaga.modalidade_inferida),
+            vaga.confianca_analise,
+            vaga.requisitos_identificados,
         )
 
     @staticmethod
@@ -255,10 +286,23 @@ class VagaRepository:
             return [dict(row) for row in connection.execute(sql, parametros).fetchall()]
 
     def salvar_analise(
-        self, vaga_id: int, compatibilidade: float, requisitos: list[Requisito]
+        self,
+        vaga_id: int,
+        compatibilidade: float,
+        requisitos: list[Requisito],
+        *,
+        confianca: str = "baixa",
+        requisitos_identificados: int | None = None,
     ) -> None:
         if not math.isfinite(compatibilidade) or not 0 <= compatibilidade <= 100:
             raise ValueError("A compatibilidade deve estar entre 0 e 100.")
+        if confianca not in {"baixa", "média", "alta"}:
+            raise ValueError("Confiança da análise inválida.")
+        quantidade = (
+            len(requisitos) if requisitos_identificados is None else requisitos_identificados
+        )
+        if not isinstance(quantidade, int) or quantidade < 0:
+            raise ValueError("Quantidade de requisitos inválida.")
         with self.database.transaction() as connection:
             existe = connection.execute("SELECT 1 FROM vagas WHERE id = ?", (vaga_id,)).fetchone()
             if not existe:
@@ -267,9 +311,15 @@ class VagaRepository:
             self._inserir_requisitos(connection, vaga_id, requisitos)
             connection.execute(
                 """UPDATE vagas
-                   SET compatibilidade = ?, atualizado_em = datetime('now')
+                   SET compatibilidade = ?, confianca_analise = ?,
+                       requisitos_identificados = ?, atualizado_em = datetime('now')
                    WHERE id = ?""",
-                (compatibilidade, vaga_id),
+                (
+                    compatibilidade,
+                    confianca,
+                    quantidade,
+                    vaga_id,
+                ),
             )
 
     def listar_requisitos(self, vaga_id: int) -> list[dict[str, Any]]:
@@ -317,9 +367,11 @@ class VagaRepository:
 
     def obter_publico(self, vaga_id: int) -> dict[str, Any] | None:
         """Retorna somente campos que podem aparecer na demonstração pública."""
-        campos = """id, titulo, empresa, localizacao, modalidade, nivel, descricao,
+        campos = """id, titulo, empresa, localizacao, modalidade, modalidade_origem,
+                    modalidade_confianca, modalidade_inferida, nivel, descricao,
                     link, fonte, identificador_externo, data_publicacao, compatibilidade,
-                    salario_min, salario_max, categoria, tipo_contrato, jornada"""
+                    confianca_analise, requisitos_identificados, salario_min, salario_max,
+                    categoria, tipo_contrato, jornada"""
         with self.database.connection() as connection:
             row = connection.execute(
                 f"SELECT {campos} FROM vagas WHERE id = ?",  # noqa: S608

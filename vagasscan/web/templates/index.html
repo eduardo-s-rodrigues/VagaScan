@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% set meta_description = "Encontre vagas de tecnologia, compare requisitos e veja a confiança de cada análise no VagaScan." %}
 {% block title %}VagaScan — vagas de tecnologia em um só lugar{% endblock %}
 {% block content %}
 <section class="hero hero-compact">
   <div class="container">
     <div class="hero-copy">
       <p class="eyebrow">VAGAS DE TECNOLOGIA NO BRASIL</p>
-      <h1>Encontre, analise e acompanhe vagas de tecnologia em um só lugar.</h1>
+      <h1>Encontre, analise e acompanhe vagas de <span class="title-highlight">tecnologia</span> em um só lugar.</h1>
       <p class="lead">Busque vagas de tecnologia no Brasil, veja sua compatibilidade com cada oportunidade e descubra o que estudar para conquistar sua próxima vaga.</p>
       <div class="hero-indicators" aria-label="Diferenciais do VagaScan">
         <span>Vagas do Brasil</span>
@@ -14,10 +15,11 @@
     </div>
     <form class="search-panel public-search-form" method="get" action="/buscar" data-public-search-form>
       <input type="hidden" name="provedor" value="adzuna">
-      <div class="search-field search-field-main"><label for="hero-term">Cargo ou palavra-chave</label><input id="hero-term" name="termo" maxlength="100" required placeholder="Python Júnior"></div>
-      <div class="search-field"><label for="hero-location">Localização</label><input id="hero-location" name="localizacao" maxlength="100" placeholder="São Paulo ou Brasil"></div>
-      <div class="search-field"><label for="hero-modality">Modalidade</label><select id="hero-modality" name="modalidade"><option value="">Todas</option><option value="presencial">Presencial</option><option value="hibrido">Híbrido</option><option value="remoto">Remoto</option></select></div>
-      <button class="button search-submit" type="submit">Buscar vagas</button>
+      <div class="search-field search-field-main field-with-icon"><label for="hero-term">⌕ Cargo ou palavra-chave</label><input id="hero-term" name="termo" maxlength="100" required placeholder="Python Júnior"></div>
+      <div class="search-field field-with-icon"><label for="hero-location">⌖ Localização</label><input id="hero-location" name="localizacao" maxlength="100" placeholder="São Paulo ou Brasil"></div>
+      <div class="search-field field-with-icon"><label for="hero-modality">▦ Modalidade</label><select id="hero-modality" name="modalidade"><option value="">Todas</option><option value="presencial">Presencial</option><option value="hibrido">Híbrido</option><option value="remoto">Remoto</option></select></div>
+      <button class="button search-submit" type="submit" data-search-submit>Buscar vagas</button>
+      <span class="sr-only" aria-live="polite" data-search-status></span>
     </form>
     <div class="quick-searches" aria-label="Sugestões rápidas">
       <span>Sugestões:</span>

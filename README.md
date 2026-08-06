@@ -7,17 +7,23 @@ repositories usam SQLite e templates Jinja2 renderizam o site no servidor.
 > A compatibilidade é uma estimativa baseada em regras e palavras-chave. Ela não garante aprovação
 > em processo seletivo e não substitui a leitura humana.
 
+O VagaScan mostra separadamente a **confiança da análise** (baixa, média ou alta). Uma nota alta
+com confiança baixa significa que os poucos sinais encontrados combinam com o perfil, não que a
+descrição foi analisada com evidência robusta.
+
 ## Funcionalidades
 
 - integração oficial com a Adzuna, paginação, filtros documentados e `redirect_url` preservado;
 - cache SQLite com expiração e fallback limitado para falhas transitórias/HTTP 429;
 - provedor local fictício e provedor HTTP genérico configurável;
 - cadastro manual, importação de descrição e análise explicável;
+- compatibilidade e confiança separadas, componentes da nota e aviso de descrição truncada;
 - deduplicação, status, candidaturas, próximas ações e histórico;
 - dashboard, relatórios, edição segura do perfil e reanálise confirmada;
 - área pública isolada do perfil e banco pessoais;
 - autenticação de administrador único, CSRF, cookies seguros e headers HTTP;
 - organizador de documentos local, simulado e explicitamente condicionado na web;
+- modalidade informada/inferida, estados úteis, vagas salvas robustas, SEO e páginas institucionais;
 - testes sem consumo da cota real da Adzuna.
 
 ## Requisitos e instalação no Windows
@@ -58,6 +64,8 @@ ADZUNA_COUNTRY=br
 ADZUNA_RESULTS_PER_PAGE=20
 ADZUNA_TIMEOUT=10
 ADZUNA_CACHE_MINUTES=30
+VAGASSCAN_MAX_EXTRA_PAGES_FOR_FILTER=2
+VAGASSCAN_SAVED_JOBS_LIMIT=200
 ```
 
 O adaptador usa `GET https://api.adzuna.com/v1/api/jobs/{pais}/search/{pagina}`. `app_id` e
@@ -65,8 +73,11 @@ O adaptador usa `GET https://api.adzuna.com/v1/api/jobs/{pais}/search/{pagina}`.
 Página é limitada a 1–100, resultados a 1–50 e distância a 1–100 km. Contrato, jornada e ordenação
 usam apenas valores aceitos pela API.
 
-A API não possui parâmetro de trabalho remoto. Quando solicitado, o VagaScan filtra localmente
-título, localização e descrição e informa que o total aproximado veio antes desse filtro.
+A API não possui parâmetro oficial de trabalho remoto. Quando solicitado, o VagaScan classifica a
+modalidade com negações simples e filtra localmente. Se uma página não for suficiente, consulta no
+máximo `VAGASSCAN_MAX_EXTRA_PAGES_FOR_FILTER` páginas extras (padrão 2), parando cedo quando há
+resultados suficientes. Cada cache miss conta no limite global da Adzuna; a ação do visitante conta
+uma única vez no limite público.
 
 O cache considera provedor, país, termo, local, página, quantidade e filtros. Um resultado válido
 evita nova chamada. Em timeout, conexão, HTTP 429 ou 5xx, um cache com até 24 horas pode ser usado
@@ -174,18 +185,20 @@ Em produção, não use reload. O health check é `GET /health` e retorna soment
 
 ### Área pública
 
-Visitantes podem ver a landing page, buscar vagas em banco público separado, abrir detalhes e
-analisar temporariamente uma descrição. Também podem manter até 100 oportunidades em “Vagas
-salvas”; essa lista fica somente no `localStorage` do navegador, não cria candidatura e não acessa
-o banco. Visitantes não podem consultar o banco principal, perfil real, candidaturas, observações,
-relatórios ou organizador.
+Visitantes podem ver a landing page e páginas institucionais, buscar vagas em banco público
+separado, abrir detalhes e analisar temporariamente uma descrição. “Vagas salvas” usa um schema
+local versionado, validado e limitado por `VAGASSCAN_SAVED_JOBS_LIMIT` (padrão 200), com ordenação,
+filtro, remoção, importação JSON e exportação JSON/CSV. A lista fica somente no `localStorage`, não
+cria candidatura e não acessa o banco. Visitantes não podem consultar o banco principal, perfil
+real, candidaturas, observações, relatórios ou organizador.
 
 `VAGASSCAN_PUBLIC_DEMO=false` mantém landing e login, mas desabilita busca/análise públicas. O
 limitador simples é por processo. Apenas um cache miss imediatamente antes de uma tentativa externa
-consome a cota: visitantes têm 15 segundos de intervalo e 30 tentativas/hora; o administrador tem
-100 tentativas/hora sem cooldown público; a Adzuna continua limitada globalmente a dez tentativas
-por minuto. Cache hit, demonstração, modalidade e ordenação local não consomem esses limites. As
-três cotas são configuráveis pelas variáveis documentadas em `.env.example`.
+consome a cota: visitantes têm 15 segundos de intervalo e 30 buscas/hora; análises públicas usam
+uma regra separada de 10/minuto; o administrador tem 100 buscas/hora sem cooldown público; a Adzuna
+é limitada globalmente a dez tentativas/minuto. Cache hit, refresh servido pelo cache, demonstração,
+modalidade e ordenação local não consomem esses limites. As cotas são configuráveis pelas variáveis
+documentadas em `.env.example`. O identificador do visitante é HMAC efêmero, não IP em claro.
 
 ### Área privada
 
@@ -262,7 +275,7 @@ Leia também [Arquitetura](docs/ARQUITETURA.md), [Deploy](docs/DEPLOY.md),
 
 - análise determinística não compreende perfeitamente contexto, negações ou requisitos implícitos;
 - descrições de busca da Adzuna podem ser resumidas/truncadas pela própria fonte;
-- filtro remoto é uma heurística local;
+- modalidade inferida é uma heurística local e pode aparecer como “Possivelmente remoto”;
 - rate limiting é em memória e pressupõe um processo;
 - vagas salvas públicas são locais a um navegador e não sincronizam entre dispositivos;
 - SQLite requer volume persistente e não é adequado a múltiplas instâncias concorrentes;

@@ -20,6 +20,7 @@ class GeradorRelatorios:
             por_status = self._contagem(connection, "status")
             por_cargo = self._contagem(connection, "titulo")
             por_local = self._contagem(connection, "localizacao")
+            por_confianca = self._contagem(connection, "confianca_analise")
             media = connection.execute(
                 "SELECT ROUND(AVG(compatibilidade), 1) AS valor FROM vagas"
             ).fetchone()["valor"]
@@ -75,6 +76,7 @@ class GeradorRelatorios:
             "vagas_por_status": por_status,
             "vagas_por_cargo": por_cargo,
             "vagas_por_localidade": por_local,
+            "analises_por_confianca": por_confianca,
             "media_compatibilidade": media or 0,
             "tecnologias_mais_pedidas": tecnologias,
             "conhecimentos_ausentes": ausentes,
@@ -85,7 +87,7 @@ class GeradorRelatorios:
 
     @staticmethod
     def _contagem(connection: Any, coluna: str) -> list[dict[str, Any]]:
-        permitidas = {"fonte", "status", "titulo", "localizacao"}
+        permitidas = {"fonte", "status", "titulo", "localizacao", "confianca_analise"}
         if coluna not in permitidas:
             raise ValueError("Coluna de relatório inválida.")
         return [
@@ -120,6 +122,7 @@ class GeradorRelatorios:
             ("Vagas por status", "vagas_por_status"),
             ("Vagas por cargo", "vagas_por_cargo"),
             ("Vagas por localidade", "vagas_por_localidade"),
+            ("Análises por confiança", "analises_por_confianca"),
             ("Tecnologias mais pedidas", "tecnologias_mais_pedidas"),
             ("Conhecimentos ausentes", "conhecimentos_ausentes"),
             ("Candidaturas por etapa", "candidaturas_por_etapa"),
@@ -158,6 +161,7 @@ class GeradorRelatorios:
             ("Vagas por status", "vagas_por_status"),
             ("Vagas por cargo", "vagas_por_cargo"),
             ("Vagas por localidade", "vagas_por_localidade"),
+            ("Análises por confiança", "analises_por_confianca"),
             ("Tecnologias mais pedidas", "tecnologias_mais_pedidas"),
             ("Conhecimentos ausentes", "conhecimentos_ausentes"),
             ("Candidaturas por etapa", "candidaturas_por_etapa"),
@@ -191,8 +195,10 @@ class GeradorRelatorios:
             "w", encoding="utf-8-sig", newline=""
         ) as arquivo:
             linhas = connection.execute(
-                """SELECT id, titulo, empresa, localizacao, modalidade, nivel, fonte,
-                          compatibilidade, status, link, data_publicacao, data_encontrada
+                """SELECT id, titulo, empresa, localizacao, modalidade,
+                          modalidade_origem, nivel, fonte, compatibilidade,
+                          confianca_analise, requisitos_identificados, status, link,
+                          data_publicacao, data_encontrada
                    FROM vagas ORDER BY id"""
             )
             escritor = csv.writer(arquivo, delimiter=";")

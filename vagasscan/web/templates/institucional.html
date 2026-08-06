@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% set meta_description = conteudo.descricao %}
+{% block title %}{{ conteudo.titulo }} — VagaScan{% endblock %}
+{% block content %}
+<section class="page-header institutional-head">
+  <div class="container narrow">
+    <p class="eyebrow">VAGASCAN</p>
+    <h1>{{ conteudo.titulo }}</h1>
+    <p>{{ conteudo.intro }}</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container narrow institutional-content">
+    {% for titulo, paragrafos in conteudo.secoes %}
+      <section class="panel">
+        <h2>{{ titulo }}</h2>
+        {% for paragrafo in paragrafos %}<p>{{ paragrafo }}</p>{% endfor %}
+      </section>
+    {% endfor %}
+    {% if conteudo.links %}
+      <nav class="contact-links" aria-label="Canais de contato">
+        {% for label, url in conteudo.links %}
+          <a class="button{% if not loop.first %} button-secondary{% endif %}" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

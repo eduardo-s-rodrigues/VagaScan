@@ -125,8 +125,66 @@ def test_modalidades_e_nivel_de_estagio(profile_path: Path) -> None:
         requisito,
         perfil,
     )
-    assert remoto.pontuacao == 100
-    assert hibrido.pontuacao == 100
+    assert remoto.pontuacao == 87
+    assert hibrido.pontuacao == 87
+    assert remoto.confianca == hibrido.confianca == "baixa"
+
+
+def test_confianca_baixa_media_e_alta_sao_independentes_da_nota(
+    profile_path: Path,
+) -> None:
+    perfil = carregar_perfil(profile_path)
+    calculadora = CalculadoraCompatibilidade()
+    vaga = Vaga(
+        "Backend Python Júnior",
+        "Empresa",
+        "Remoto no Brasil",
+        "Descrição detalhada " * 50,
+        "remoto",
+        "júnior",
+    )
+    baixa = calculadora.calcular(vaga, [Requisito("Python", "linguagens", True)], perfil)
+    media = calculadora.calcular(
+        vaga,
+        [
+            Requisito("Python", "linguagens", True, 2),
+            Requisito("SQL", "linguagens", True),
+            Requisito("Docker", "ferramentas", False),
+        ],
+        perfil,
+    )
+    alta = calculadora.calcular(
+        vaga,
+        [
+            Requisito("Python", "linguagens", True, 2),
+            Requisito("SQL", "linguagens", True),
+            Requisito("Git", "ferramentas", True),
+            Requisito("Docker", "ferramentas", False),
+            Requisito("FastAPI", "frameworks", True),
+            Requisito("AWS", "cloud", False),
+        ],
+        perfil,
+    )
+    assert baixa.confianca == "baixa"
+    assert media.confianca == "média"
+    assert alta.confianca == "alta"
+    assert baixa.pontuacao == 87
+    assert baixa.componentes["tecnica"] == 42
+    assert baixa.requisitos_identificados == 1
+    assert any("Parcela técnica limitada" in item for item in baixa.confirmar)
+
+
+def test_descricao_truncada_reduz_confianca_e_pede_confirmacao(profile_path: Path) -> None:
+    perfil = carregar_perfil(profile_path)
+    vaga = Vaga("Backend Júnior", "Empresa", "Campinas", "Python, SQL, Git...")
+    requisitos = [
+        Requisito("Python", "linguagens", True),
+        Requisito("SQL", "linguagens", True),
+        Requisito("Git", "ferramentas", True),
+    ]
+    resultado = CalculadoraCompatibilidade().calcular(vaga, requisitos, perfil)
+    assert resultado.descricao_possivelmente_truncada is True
+    assert "A descrição pode estar truncada na fonte" in resultado.confirmar
 
 
 def test_obrigatorio_pesa_mais_que_desejavel_quando_ausente(profile_path: Path) -> None:

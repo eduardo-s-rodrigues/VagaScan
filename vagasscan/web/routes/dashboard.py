@@ -70,21 +70,33 @@ async def buscar(request: Request):
         gate = None
         if provider_name in {"adzuna", "http"}:
             settings = request.app.state.settings
+            primeira_tentativa = True
 
             def autorizar() -> None:
-                rules = [
-                    RateRule(
-                        "admin-search-hour",
-                        str(request.session.get("admin") or "admin"),
-                        settings.admin_search_limit_per_hour,
-                        60 * 60,
+                nonlocal primeira_tentativa
+                rules = []
+                if primeira_tentativa:
+                    rules.append(
+                        RateRule(
+                            "admin-search-hour",
+                            str(request.session.get("admin") or "admin"),
+                            settings.admin_search_limit_per_hour,
+                            60 * 60,
+                        )
                     )
-                ]
                 if provider_name == "adzuna":
-                    rules.append(RateRule("adzuna-global", "global", 10, 60))
+                    rules.append(
+                        RateRule(
+                            "adzuna-global",
+                            "global",
+                            settings.adzuna_global_limit_per_minute,
+                            60,
+                        )
+                    )
                 retry_after = request.app.state.rate_limiter.reserve(rules)
                 if retry_after:
                     raise ConsultaLimitadaError(retry_after)
+                primeira_tentativa = False
 
             gate = autorizar
         resultado = service.buscar_e_salvar(

@@ -37,9 +37,13 @@ class Settings:
     adzuna_results_per_page: int = 20
     adzuna_timeout: float = 10.0
     adzuna_cache_minutes: int = 30
+    max_extra_pages_for_filter: int = 2
+    saved_jobs_limit: int = 200
     public_search_cooldown_seconds: int = 15
     public_search_limit_per_hour: int = 30
+    public_analysis_limit_per_minute: int = 10
     admin_search_limit_per_hour: int = 100
+    adzuna_global_limit_per_minute: int = 10
     admin_username: str = "admin"
     admin_password_hash: str = ""
     session_secret: str = ""
@@ -118,14 +122,24 @@ def load_settings(env_path: Path | None = None) -> Settings:
         ),
         adzuna_timeout=_float_from_env("ADZUNA_TIMEOUT", 10.0),
         adzuna_cache_minutes=_int_from_env("ADZUNA_CACHE_MINUTES", 30, 1, 1440),
+        max_extra_pages_for_filter=_int_from_env(
+            "VAGASSCAN_MAX_EXTRA_PAGES_FOR_FILTER", 2, 0, 2
+        ),
+        saved_jobs_limit=_int_from_env("VAGASSCAN_SAVED_JOBS_LIMIT", 200, 1, 500),
         public_search_cooldown_seconds=_int_from_env(
             "VAGASSCAN_PUBLIC_SEARCH_COOLDOWN_SECONDS", 15, 1, 300
         ),
         public_search_limit_per_hour=_int_from_env(
             "VAGASSCAN_PUBLIC_SEARCH_LIMIT_PER_HOUR", 30, 1, 1000
         ),
+        public_analysis_limit_per_minute=_int_from_env(
+            "VAGASSCAN_PUBLIC_ANALYSIS_LIMIT_PER_MINUTE", 10, 1, 100
+        ),
         admin_search_limit_per_hour=_int_from_env(
             "VAGASSCAN_ADMIN_SEARCH_LIMIT_PER_HOUR", 100, 1, 5000
+        ),
+        adzuna_global_limit_per_minute=_int_from_env(
+            "VAGASSCAN_ADZUNA_GLOBAL_LIMIT_PER_MINUTE", 10, 1, 60
         ),
         admin_username=os.getenv("VAGASSCAN_ADMIN_USERNAME", "admin").strip() or "admin",
         admin_password_hash=os.getenv("VAGASSCAN_ADMIN_PASSWORD_HASH", "").strip(),

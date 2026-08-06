@@ -7,7 +7,7 @@ Use um card no repositório do portfólio; não altere nem incorpore o VagaScan 
 **VagaScan**
 
 > Aplicação web em Python para buscar, analisar e acompanhar vagas de tecnologia, com integração à
-> Adzuna, SQLite e análise de compatibilidade baseada em regras.
+> Adzuna, SQLite e análise explicável de compatibilidade e confiança.
 
 Botões:
 
@@ -23,7 +23,7 @@ Abra o aplicativo em nova aba para manter navegação e autenticação isoladas.
   <h2>VagaScan</h2>
   <p>
     Aplicação web em Python para buscar, analisar e acompanhar vagas de tecnologia,
-    com integração à Adzuna, SQLite e análise de compatibilidade baseada em regras.
+    com integração à Adzuna, SQLite e análise explicável de compatibilidade e confiança.
   </p>
   <div class="project-actions">
     <a href="https://vagasscan.dominio.com.br"

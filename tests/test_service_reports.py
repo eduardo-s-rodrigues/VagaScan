@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 from vagasscan.database import Database
-from vagasscan.models import Candidatura, Vaga
+from vagasscan.models import Candidatura, ConsultaVagas, ResultadoBusca, Vaga
+from vagasscan.providers.base import ProvedorVagas
 from vagasscan.reports import GeradorRelatorios
 from vagasscan.repositories.candidaturas import CandidaturaRepository
 from vagasscan.services.vagas import VagaService
@@ -74,3 +75,59 @@ def test_csv_neutraliza_formula_vinda_de_texto_externo(
     conteudo = destino.read_text(encoding="utf-8-sig")
     assert "'=2+2" in conteudo
     assert "'@empresa" in conteudo
+
+
+def test_filtro_modalidade_consulta_no_maximo_paginas_extras_controladas(
+    service: VagaService,
+) -> None:
+    class ProvedorPaginado(ProvedorVagas):
+        nome = "adzuna"
+
+        def buscar(self, termo: str, localizacao: str = "") -> list[Vaga]:
+            return []
+
+        def consultar(self, consulta: ConsultaVagas) -> ResultadoBusca:
+            if consulta.pagina == 1:
+                vagas = [
+                    Vaga(
+                        f"Presencial {indice}",
+                        "Empresa",
+                        "Campinas",
+                        "Python e SQL",
+                        modalidade="presencial",
+                        identificador_externo=f"p-{indice}",
+                        fonte="adzuna",
+                    )
+                    for indice in range(20)
+                ]
+            else:
+                vagas = [
+                    Vaga(
+                        f"Remota {indice}",
+                        "Empresa",
+                        "Brasil",
+                        "Python e SQL",
+                        modalidade="remoto",
+                        identificador_externo=f"r-{indice}",
+                        fonte="adzuna",
+                    )
+                    for indice in range(2)
+                ]
+            return ResultadoBusca(
+                vagas=vagas,
+                pagina=consulta.pagina,
+                resultados_por_pagina=20,
+                total_aproximado=40,
+            )
+
+    autorizacoes: list[bool] = []
+    resultado = service.buscar_e_salvar(
+        ProvedorPaginado(),
+        ConsultaVagas(termo="python", modalidade="remoto"),
+        autorizar_consulta_externa=lambda: autorizacoes.append(True),
+    )
+    assert resultado["recebidas"] == 22
+    assert resultado["quantidade_analisada"] == 22
+    assert resultado["paginas_analisadas"] == 2
+    assert resultado["recebidas"] > len(resultado["itens"]) == 2
+    assert len(autorizacoes) == 2

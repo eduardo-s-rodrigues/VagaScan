@@ -44,8 +44,62 @@ O analisador encontra termos canônicos e sinônimos, respeita limites de palavr
 A calculadora distribui pontos entre técnica, área, nível, local/modalidade, experiência e formação.
 Requisitos repetidos não inflam a nota; níveis acima do perfil recebem penalidade explícita.
 
+### Regra completa da compatibilidade
+
+| Componente | Máximo | Regra resumida |
+|---|---:|---|
+| Técnica | 55 | proporção ponderada dos requisitos técnicos presentes no perfil |
+| Área | 15 | título/descrição alinhados às áreas desejadas |
+| Nível | 10 | nível alinhado ao perfil |
+| Localização/modalidade | 10 | local ou modalidade desejados |
+| Experiência | 5 | compara maior quantidade de anos encontrada com o perfil |
+| Formação | 5 | compara ensino superior/cursando/completo quando informado |
+| Penalidade de nível | −6/−12 | pleno ou sênior/especialista acima do perfil iniciante |
+
+Obrigatórios pesam 2, requisitos comuns 1 e desejáveis 0,75. Sem requisitos técnicos, a parcela
+técnica usa o valor neutro 27,5/55 e exige confirmação manual. Com apenas um ou dois requisitos
+técnicos, a parcela fica limitada a 42/55; se a confiança for baixa por outras razões, o limite é
+45/55. Assim, uma única tecnologia compatível não pode produzir 100%, mas a confiança baixa também
+não transforma automaticamente uma boa aderência em nota baixa.
+
+### Regra completa da confiança
+
+A confiança é calculada separadamente em uma escala interna de 0–100. Ela não entra na nota de
+compatibilidade e combina:
+
+- até 42 pontos pela quantidade total de requisitos (7 por requisito, até seis);
+- até 10 pontos pela quantidade de requisitos técnicos (2 por item, até cinco);
+- 8 pontos quando há requisito obrigatório;
+- 5 pontos pela presença de escolaridade;
+- 5 pontos pela presença de experiência ou anos exigidos;
+- 5 pontos quando o nível está informado no campo ou texto;
+- 0, 3, 6 ou 10 pontos conforme a descrição tenha menos de 160, 160–349, 350–799 ou pelo menos
+  800 caracteres;
+- até 10 pontos pela proporção de evidências presentes entre requisitos, técnica,
+  obrigatoriedade, escolaridade, experiência, nível e descrição adequada;
+- menos 15 pontos se o texto terminar com reticências/“ver mais” ou tiver sinais de corte.
+
+Os pontos são combinados com guardrails de volume: zero a dois requisitos resultam em confiança
+baixa; três a cinco podem resultar em baixa ou média; alta exige pelo menos seis requisitos e 72
+pontos internos. Abaixo de 40 pontos a confiança é baixa; com seis ou mais, 40–71 é média. Essa
+combinação evita depender apenas de limites fixos e leva em conta campos ausentes e qualidade do
+texto.
+
+Na interface, confiança baixa exibe o aviso para revisão manual, quantidade de requisitos,
+eventual truncamento e a limitação técnica. A seção “Como esta pontuação foi calculada?” mostra os
+seis componentes, penalidades, fatores positivos, negativos e itens para confirmação sem exigir que
+o visitante interprete a fórmula.
+
 `analisar_temporaria()` executa tudo sem repository. `cadastrar_e_analisar()` usa o mesmo cálculo e
 depois persiste. Assim, a página pública não precisa criar registros para analisar uma descrição.
+
+## 4.1 Modalidade
+
+`classificar_modalidade()` prioriza campos estruturados conhecidos da fonte. Sem campo estruturado,
+procura híbrido, presencial e remoto no título, localização e descrição, remove negações simples e
+ignora contextos como “acesso remoto a servidores”. Termos de possibilidade viram “Possivelmente
+remoto”. O modelo registra `modalidade_origem`, `modalidade_confianca` e
+`modalidade_inferida`; a interface nunca apresenta inferência como dado confirmado da fonte.
 
 ## 5. Separação público/privado
 

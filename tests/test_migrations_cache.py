@@ -69,7 +69,14 @@ def test_migracao_preserva_banco_legado(tmp_path: Path) -> None:
         "idx_vagas_status",
         "idx_cache_buscas_provedor_expira",
     } <= indexes
-    assert versions == [1, 2, 3]
+    assert {
+        "modalidade_origem",
+        "modalidade_confianca",
+        "modalidade_inferida",
+        "confianca_analise",
+        "requisitos_identificados",
+    } <= columns
+    assert versions == [1, 2, 3, 4]
     assert dict(row) == {"titulo": "Legada", "empresa": "Empresa"}
 
 
@@ -88,6 +95,7 @@ def test_cache_valido_expirado_e_chave_sem_segredo(tmp_path: Path) -> None:
     cache.salvar("adzuna", query, result, 30)
     valid = cache.obter("adzuna", query)
     assert valid is not None and valid.veio_cache and not valid.cache_desatualizado
+    assert valid.cache_criado_em
 
     now = datetime.now(UTC)
     with database.transaction() as connection:

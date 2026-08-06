@@ -3,12 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="VagaScan: busca, análise e acompanhamento de vagas de tecnologia.">
+  <meta name="description" content="{{ meta_description|default('Busque e analise vagas de tecnologia com compatibilidade explicável e confiança da análise.') }}">
+  <meta name="theme-color" content="#081a33">
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+  <link rel="icon" href="{{ url_for('static', path='/img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="manifest" href="{{ url_for('static', path='/manifest.webmanifest') }}">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="VagaScan">
+  <meta property="og:title" content="{{ self.title()|striptags|trim }}">
+  <meta property="og:description" content="{{ meta_description|default('Busque e analise vagas de tecnologia com compatibilidade explicável e confiança da análise.') }}">
+  {% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}">{% endif %}
+  <meta property="og:image" content="{{ settings.base_url.rstrip('/') }}/static/img/social-card.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
+  <meta name="twitter:description" content="{{ meta_description|default('Busque e analise vagas de tecnologia com compatibilidade explicável e confiança da análise.') }}">
+  <meta name="twitter:image" content="{{ settings.base_url.rstrip('/') }}/static/img/social-card.svg">
   <title>{% block title %}VagaScan{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
-  <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}?v=4">
+  <script src="{{ url_for('static', path='/js/app.js') }}?v=4" defer></script>
 </head>
-<body>
+<body data-saved-jobs-limit="{{ settings.saved_jobs_limit }}">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="site-header">
     <div class="container header-inner">
@@ -34,6 +49,7 @@
     </div>
   </header>
   <main id="conteudo">
+    <div class="sr-only" aria-live="polite" aria-atomic="true" data-global-status></div>
     {% if flash %}
       <div class="container"><div class="alert alert-{{ flash.category }}" role="status">{{ flash.message }}</div></div>
     {% endif %}
@@ -43,7 +59,11 @@
     <div class="container footer-grid">
       <div class="footer-brand"><strong>VagaScan</strong><p>Projeto desenvolvido em Python para pesquisa e análise de vagas de tecnologia.</p></div>
       <nav class="footer-links" aria-label="Links do projeto">
-        <a href="/#sobre-projeto">Sobre o projeto</a>
+        <a href="/sobre">Sobre</a>
+        <a href="/como-funciona">Como funciona</a>
+        <a href="/privacidade">Privacidade</a>
+        <a href="/termos">Termos</a>
+        <a href="/contato">Contato</a>
         <a href="https://github.com/eduardo-s-rodrigues/VagaScan" target="_blank" rel="noopener noreferrer">Código no GitHub</a>
         <a href="https://eduardosrodriguesdev.com.br/" target="_blank" rel="noopener noreferrer">Portfólio</a>
       </nav>

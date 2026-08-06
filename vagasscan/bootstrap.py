@@ -46,6 +46,7 @@ def criar_contexto(settings: Settings, *, publico: bool = False) -> AppContext:
             profile_path,
             cache=cache,
             cache_minutes=settings.adzuna_cache_minutes,
+            max_extra_pages_for_filter=settings.max_extra_pages_for_filter,
         ),
         perfil_service=PerfilService(profile_path),
     )

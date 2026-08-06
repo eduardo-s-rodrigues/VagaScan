@@ -17,6 +17,9 @@ class CacheBuscaRepository:
     @staticmethod
     def chave(provedor: str, consulta: ConsultaVagas) -> tuple[str, str]:
         parametros = asdict(consulta)
+        # Modalidade é uma heurística local: não deve fragmentar nem consumir o cache da fonte.
+        parametros.pop("modalidade", None)
+        parametros.pop("remoto", None)
         canonical = json.dumps(
             {"provedor": provedor, **parametros},
             ensure_ascii=False,
@@ -102,4 +105,5 @@ class CacheBuscaRepository:
             cache_desatualizado=expired,
             cache_expira_em=expires.isoformat(),
             erros=[str(item) for item in data.get("erros", [])],
+            cache_criado_em=created.isoformat(),
         )

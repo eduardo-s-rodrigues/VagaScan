@@ -1,22 +1,23 @@
 {% extends "base.html" %}
+{% set meta_description = "Busca administrativa de vagas no VagaScan." %}
 {% block title %}Buscar vagas — VagaScan{% endblock %}
 {% block content %}
 <section class="page-header"><div class="container"><p class="eyebrow">OPORTUNIDADES</p><h1>Buscar vagas</h1><p>Use poucos filtros para começar. Você poderá refinar a busca depois.</p></div></section>
 <section class="section"><div class="container narrow">
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
-  <form class="form-card" method="get" action="{% if private %}/dashboard/buscar{% else %}/buscar{% endif %}">
+  <form class="form-card" method="get" action="{% if private %}/dashboard/buscar{% else %}/buscar{% endif %}" data-loading-form aria-busy="false">
     <div class="form-grid">
-      <div class="field field-wide"><label for="termo">Termo de busca</label><input id="termo" name="termo" maxlength="100" required placeholder="Ex.: Python júnior"></div>
-      <div class="field"><label for="localizacao">Localização</label><input id="localizacao" name="localizacao" maxlength="100" placeholder="Ex.: São Paulo"></div>
-      <div class="field"><label for="provedor">Fonte</label><select id="provedor" name="provedor"><option value="adzuna">Adzuna — vagas reais</option><option value="demonstracao">Demonstração local</option>{% if private %}<option value="http">HTTP configurável</option>{% endif %}</select></div>
-      <div class="field"><label for="tipo_contrato">Contrato</label><select id="tipo_contrato" name="tipo_contrato"><option value="">Qualquer</option><option value="permanent">Permanente</option><option value="contract">Contrato</option></select></div>
-      <div class="field"><label for="jornada">Jornada</label><select id="jornada" name="jornada"><option value="">Qualquer</option><option value="full_time">Período integral</option><option value="part_time">Período parcial</option></select></div>
-      <div class="field"><label for="ordenacao">Ordenação</label><select id="ordenacao" name="ordenacao"><option value="relevance">Relevância</option><option value="date">Mais recentes</option><option value="salary">Salário</option><option value="hybrid">Híbrida</option><option value="default">Padrão da fonte</option></select></div>
-      <div class="field"><label for="resultados_por_pagina">Resultados</label><input id="resultados_por_pagina" name="resultados_por_pagina" type="number" min="1" max="50" value="20"></div>
-      <div class="field"><label for="distancia">Distância (km)</label><input id="distancia" name="distancia" type="number" min="1" max="100" placeholder="Opcional"></div>
-      <label class="check"><input type="checkbox" name="remoto" value="1"> Somente remoto <small>(filtro aproximado local)</small></label>
+      <div class="field field-wide"><label for="termo">Termo de busca</label><input id="termo" name="termo" maxlength="100" required value="{{ request.query_params.get('termo', '') }}" placeholder="Ex.: Python júnior"></div>
+      <div class="field"><label for="localizacao">Localização</label><input id="localizacao" name="localizacao" maxlength="100" value="{{ request.query_params.get('localizacao', '') }}" placeholder="Ex.: São Paulo"></div>
+      <div class="field"><label for="provedor">Fonte</label><select id="provedor" name="provedor"><option value="adzuna" {% if request.query_params.get('provedor', 'adzuna') == 'adzuna' %}selected{% endif %}>Adzuna — vagas reais</option><option value="demonstracao" {% if request.query_params.get('provedor') == 'demonstracao' %}selected{% endif %}>Demonstração local</option>{% if private %}<option value="http" {% if request.query_params.get('provedor') == 'http' %}selected{% endif %}>HTTP configurável</option>{% endif %}</select></div>
+      <div class="field"><label for="tipo_contrato">Contrato</label><select id="tipo_contrato" name="tipo_contrato"><option value="">Qualquer</option><option value="permanent" {% if request.query_params.get('tipo_contrato') == 'permanent' %}selected{% endif %}>Permanente</option><option value="contract" {% if request.query_params.get('tipo_contrato') == 'contract' %}selected{% endif %}>Contrato</option></select></div>
+      <div class="field"><label for="jornada">Jornada</label><select id="jornada" name="jornada"><option value="">Qualquer</option><option value="full_time" {% if request.query_params.get('jornada') == 'full_time' %}selected{% endif %}>Período integral</option><option value="part_time" {% if request.query_params.get('jornada') == 'part_time' %}selected{% endif %}>Período parcial</option></select></div>
+      <div class="field"><label for="ordenacao">Ordenação</label><select id="ordenacao" name="ordenacao">{% for value, label in [('relevance','Relevância'),('date','Mais recentes'),('salary','Salário'),('hybrid','Híbrida'),('default','Padrão da fonte')] %}<option value="{{ value }}" {% if request.query_params.get('ordenacao', 'relevance') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="resultados_por_pagina">Resultados</label><input id="resultados_por_pagina" name="resultados_por_pagina" type="number" min="1" max="50" value="{{ request.query_params.get('resultados_por_pagina', 20) }}"></div>
+      <div class="field"><label for="distancia">Distância (km)</label><input id="distancia" name="distancia" type="number" min="1" max="100" value="{{ request.query_params.get('distancia', '') }}" placeholder="Opcional"></div>
+      <label class="check"><input type="checkbox" name="remoto" value="1" {% if request.query_params.get('remoto') %}checked{% endif %}> Somente remoto <small>(filtro aproximado local)</small></label>
     </div>
-    <button class="button" type="submit">Buscar vagas</button>
+    <button class="button" type="submit" data-loading-submit data-loading-text="Buscando vagas..."><span data-submit-label>Buscar vagas</span><span class="loading-spinner" aria-hidden="true" hidden></span></button><span class="sr-only" aria-live="polite" data-form-status></span>
   </form>
 </div></section>
 {% endblock %}

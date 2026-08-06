@@ -8,6 +8,7 @@ import time
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,55 @@ from vagasscan.utils.validation import url_http_segura
 WEB_ROOT = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=WEB_ROOT / "templates")
 templates.env.globals["url_http_segura"] = url_http_segura
+
+
+def formatar_data_brasileira(value: Any) -> str:
+    texto = str(value or "").strip()
+    if not texto:
+        return "Não informada"
+    try:
+        return datetime.fromisoformat(texto.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+    except ValueError:
+        return texto[:10]
+
+
+def tempo_decorrido(value: Any) -> str:
+    texto = str(value or "").strip()
+    if not texto:
+        return ""
+    try:
+        momento = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=UTC)
+    segundos = max(0, int((datetime.now(UTC) - momento.astimezone(UTC)).total_seconds()))
+    if segundos < 60:
+        return "agora"
+    minutos = segundos // 60
+    if minutos < 60:
+        return f"há {minutos} minuto{'s' if minutos != 1 else ''}"
+    horas = minutos // 60
+    if horas < 24:
+        return f"há {horas} hora{'s' if horas != 1 else ''}"
+    dias = horas // 24
+    return f"há {dias} dia{'s' if dias != 1 else ''}"
+
+
+def iniciais_empresa(value: Any) -> str:
+    partes = [parte for parte in str(value or "").strip().split() if parte]
+    if not partes:
+        return "VS"
+    if len(partes) == 1:
+        return partes[0][:2].upper()
+    return f"{partes[0][0]}{partes[1][0]}".upper()
+
+
+templates.env.globals.update(
+    formatar_data_brasileira=formatar_data_brasileira,
+    tempo_decorrido=tempo_decorrido,
+    iniciais_empresa=iniciais_empresa,
+)
 
 
 class RateLimiter:
@@ -128,6 +178,7 @@ def flash(request: Request, message: str, category: str = "success") -> None:
 def contexto(request: Request, **values: Any) -> dict[str, Any]:
     token = csrf_token(request)
     flash_key = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    base_url = url_http_segura(request.app.state.settings.base_url).rstrip("/")
     data = {
         "request": request,
         "settings": request.app.state.settings,
@@ -135,6 +186,7 @@ def contexto(request: Request, **values: Any) -> dict[str, Any]:
         "private_navigation": request.url.path.startswith("/dashboard"),
         "csrf_token": token,
         "flash": request.app.state.flash_messages.pop(flash_key, None),
+        "canonical_url": f"{base_url}{request.url.path}" if base_url else "",
     }
     data.update(values)
     return data
@@ -177,6 +229,7 @@ def consulta_da_requisicao(request: Request) -> ConsultaVagas:
         ordenacao=str(query.get("ordenacao") or "relevance"),
         distancia_km=distancia,
         pais=request.app.state.settings.adzuna_country,
+        modalidade=str(query.get("modalidade") or ""),
     )
 
 

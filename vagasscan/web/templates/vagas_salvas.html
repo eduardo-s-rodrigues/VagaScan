@@ -1,23 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Vagas salvas — VagaScan{% endblock %}
+{% set meta_description = "Organize, filtre, importe e exporte as vagas salvas localmente neste navegador." %}
+{% block title %}Vagas salvas neste navegador — VagaScan{% endblock %}
 {% block content %}
 <section class="search-page-head saved-page-head">
-  <div class="container"><p class="eyebrow">NO SEU NAVEGADOR</p><h1>Vagas salvas</h1><p>Reúna oportunidades para consultar novamente sem criar uma conta.</p></div>
+  <div class="container"><p class="eyebrow">NO SEU NAVEGADOR</p><h1>Vagas salvas</h1><p>Organize oportunidades para consultar novamente sem criar uma conta.</p></div>
 </section>
 <section class="section saved-jobs-section">
   <div class="container">
-    <div class="notice saved-notice" role="note"><strong>Armazenamento local</strong><p>As vagas salvas ficam armazenadas apenas neste navegador.</p></div>
+    <div class="notice saved-notice" role="note"><strong>Armazenamento local</strong><p>As vagas salvas ficam apenas neste navegador. Limpar os dados do site ou trocar de dispositivo removerá a lista.</p></div>
+    <div class="saved-toolbar" data-saved-toolbar>
+      <div class="field"><label for="saved-sort">Ordenar</label><select id="saved-sort" data-saved-sort><option value="date-desc">Mais recentes salvas</option><option value="date-asc">Mais antigas salvas</option><option value="score-desc">Maior compatibilidade</option><option value="score-asc">Menor compatibilidade</option></select></div>
+      <div class="field"><label for="saved-modality">Filtrar modalidade</label><select id="saved-modality" data-saved-modality><option value="">Todas</option><option value="remoto">Remoto</option><option value="hibrido">Híbrido</option><option value="presencial">Presencial</option><option value="não informada">Não informada</option></select></div>
+      <div class="saved-export-actions"><button class="button button-secondary button-small" type="button" data-export-json>Exportar JSON</button><button class="button button-secondary button-small" type="button" data-export-csv>Exportar CSV</button><label class="button button-secondary button-small import-label" for="saved-import">Importar JSON</label><input class="sr-only" id="saved-import" type="file" accept="application/json,.json" data-import-json><button class="button button-danger button-small" type="button" data-remove-all>Remover todas</button></div>
+    </div>
     <div class="saved-page-heading"><h2>Suas oportunidades</h2><span aria-live="polite" data-saved-count>0 vagas</span></div>
+    <div class="alert" role="status" aria-live="polite" data-saved-feedback hidden></div>
     <div class="saved-jobs-list" data-saved-jobs-list></div>
-    <div class="empty" data-saved-empty><h3>Nenhuma vaga salva</h3><p>Use o botão “Salvar vaga” nos resultados para montar sua lista.</p><a class="button" href="/buscar">Buscar vagas</a></div>
+    <div class="empty" data-saved-filter-empty hidden><h3>Nenhuma vaga nesta modalidade.</h3><p>Selecione “Todas” para ver a lista completa.</p></div>
+    <div class="empty" data-saved-empty><h3>Você ainda não salvou nenhuma vaga.</h3><p>Use o botão “Salvar vaga” nos resultados para montar sua lista.</p><a class="button" href="/buscar">Buscar vagas</a></div>
   </div>
 </section>
 
 <template id="saved-job-template">
   <article class="saved-job-card">
-    <div><p class="saved-date"></p><h3></h3><p class="company"></p><p class="metadata"></p></div>
-    <div class="saved-score" aria-label="Compatibilidade"><strong></strong><span>compatível</span></div>
-    <div class="card-actions"><a class="button button-small saved-detail">Ver detalhes</a><a class="button button-secondary button-small saved-original" target="_blank" rel="noopener noreferrer">Abrir vaga original</a><button class="button button-quiet button-small saved-remove" type="button">Remover dos salvos</button></div>
+    <div class="company-avatar" aria-hidden="true"></div>
+    <div class="saved-job-main"><p class="saved-date"></p><h3></h3><p class="company"></p><p class="metadata"></p><p class="saved-source small"></p><span class="confidence saved-confidence"></span></div>
+    <div class="saved-score" aria-label="Compatibilidade"><strong></strong><span>compatibilidade</span></div>
+    <div class="card-actions"><a class="button button-small saved-detail">Ver detalhes</a><a class="button button-secondary button-small saved-original" target="_blank" rel="noopener noreferrer">Abrir vaga original</a><button class="button button-quiet button-small saved-remove" type="button">Remover vaga</button></div>
   </article>
 </template>
 {% endblock %}
