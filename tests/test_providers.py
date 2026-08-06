@@ -50,6 +50,16 @@ class SessaoTimeout:
         raise requests.Timeout("token-secreto-nao-deve-aparecer")
 
 
+class SessaoSequencial:
+    def __init__(self, respostas: list[Any]) -> None:
+        self.respostas = iter(respostas)
+        self.calls = 0
+
+    def get(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls += 1
+        return next(self.respostas)
+
+
 class RespostaHttpErro:
     def __init__(self, status_code: int) -> None:
         self.status_code = status_code
@@ -97,9 +107,23 @@ def test_erro_http_e_traduzido(tmp_path: Path, status: int) -> None:
     provedor = ProvedorHttpConfiguravel(
         settings(tmp_path, api_url="https://api.example.test/jobs"),
         session=SessaoFalsa(RespostaHttpErro(status)),  # type: ignore[arg-type]
+        sleeper=lambda _: None,
     )
     with pytest.raises(ErroProvedor, match=f"HTTP {status}"):
         provedor.buscar("python")
+
+
+def test_http_repete_uma_vez_em_erro_5xx(tmp_path: Path) -> None:
+    session = SessaoSequencial([RespostaHttpErro(503), RespostaJson()])
+    waits: list[float] = []
+    provedor = ProvedorHttpConfiguravel(
+        settings(tmp_path, api_url="https://api.example.test/jobs"),
+        session=session,  # type: ignore[arg-type]
+        sleeper=waits.append,
+    )
+    assert provedor.buscar("python")[0].titulo == "Estágio Python"
+    assert session.calls == 2
+    assert waits == [0.25]
 
 
 def test_limite_de_requisicoes_tem_mensagem_especifica(tmp_path: Path) -> None:

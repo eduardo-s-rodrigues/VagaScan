@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VagaScan: busca, análise e acompanhamento de vagas de tecnologia.">
+  <title>{% block title %}VagaScan{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+  <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/" aria-label="VagaScan, página inicial"><span>Vaga</span>Scan</a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
+      <nav id="main-nav" class="main-nav" aria-label="Navegação principal">
+        <a href="/buscar">Buscar</a>
+        <a href="/analisar">Analisar descrição</a>
+        {% if authenticated %}
+          <a href="/dashboard">Dashboard</a>
+          <a href="/dashboard/vagas">Vagas salvas</a>
+          <a href="/dashboard/candidaturas">Candidaturas</a>
+          <a href="/dashboard/relatorios">Relatórios</a>
+          <a href="/dashboard/perfil">Perfil</a>
+          <form method="post" action="/logout" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="link-button" type="submit">Sair</button>
+          </form>
+        {% else %}
+          <a href="/login">Área privada</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+  <main id="conteudo">
+    {% if flash %}
+      <div class="container"><div class="alert alert-{{ flash.category }}" role="status">{{ flash.message }}</div></div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><strong>VagaScan</strong><p>Projeto educacional em Python para organizar a busca por oportunidades.</p></div>
+      <div><p>A compatibilidade é uma estimativa baseada em regras e palavras-chave.</p><a href="https://github.com/eduardo-s-rodrigues/VagaScan" target="_blank" rel="noopener noreferrer">Ver no GitHub</a></div>
+      <div><p>Vagas fornecidas pela Adzuna quando a integração está ativa.</p><a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></div>
+    </div>
+  </footer>
+</body>
+</html>

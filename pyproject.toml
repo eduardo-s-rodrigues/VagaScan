@@ -9,18 +9,26 @@ description = "MVP para busca, análise e acompanhamento de vagas de tecnologia"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "fastapi>=0.115,<1",
+  "itsdangerous>=2.2,<3",
+  "jinja2>=3.1,<4",
   "python-dotenv>=1.0,<2",
+  "python-multipart>=0.0.20,<1",
   "requests>=2.32,<3",
+  "uvicorn>=0.34,<1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3,<9", "ruff>=0.9,<1"]
+dev = ["httpx>=0.28,<1", "pytest>=8.3,<9", "ruff>=0.9,<1"]
 
 [project.scripts]
 vagasscan = "vagasscan.main:main"
 
 [tool.setuptools.packages.find]
 include = ["vagasscan*"]
+
+[tool.setuptools.package-data]
+vagasscan = ["web/templates/**/*.html", "web/static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -32,4 +40,3 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-

@@ -1,141 +1,105 @@
-# Guia de estudo do VagasScan
+# Guia de estudo do VagaScan
 
-Este guia acompanha o caminho de um dado usando sempre cinco perguntas: de onde veio, quem recebeu,
-o que foi processado, onde foi salvo e qual resultado voltou. Abra os arquivos citados, coloque
-`print()` temporários para experimentar e depois execute os testes.
+Use este guia para seguir dados reais pelo projeto. Em cada tema, responda: de onde veio, quem
+validou, quem transformou, onde foi salvo e o que chegou à interface.
 
-## API, requisição HTTP e JSON
+## 1. Uma busca Adzuna
 
-1. **De onde veio o dado?** De uma URL real configurada em `JOB_API_URL` ou do provedor local.
-2. **Quem recebeu?** `ProvedorHttpConfiguravel.buscar()` em `vagasscan/providers/`.
-3. **O que foi processado?** `requests` faz um `GET`; a resposta JSON é validada e seus campos são
-   convertidos para uma `Vaga`. JSON é um formato textual de objetos, listas, números e textos.
-4. **Onde foi salvo?** O provedor não salva. Ele retorna objetos ao serviço, que decide persistir.
-5. **Qual resultado voltou?** Uma lista de `Vaga` ou um erro previsível para timeout, limite, HTTP,
-   credencial ausente ou formato inválido.
+1. `ConsultaVagas` recebe termo, local, página e filtros.
+2. `VagaService.buscar_e_salvar()` consulta `CacheBuscaRepository`.
+3. Em cache miss, `ProvedorAdzuna.consultar()` valida e faz um GET.
+4. `_converter()` transforma JSON externo em `Vaga` e preserva `redirect_url`.
+5. O serviço extrai requisitos, calcula compatibilidade e deduplica.
+6. Vaga e requisitos são gravados na mesma transação.
+7. CLI ou Jinja2 mostram contagens, cache e erros seguros.
 
-Uma API é um contrato entre programas. Requisição HTTP é a mensagem enviada a esse contrato. JSON
-é um formato comum para a resposta. São conceitos relacionados, mas não são a mesma coisa.
+Observe que `app_id` e `app_key` pertencem a `Settings`, não a `ConsultaVagas`; por isso a chave do
+cache não consegue armazená-los acidentalmente.
 
-## SQLite e SQL parametrizado
+## 2. Cache e falhas
 
-1. **De onde veio o dado?** De uma `Vaga`, `Requisito` ou `Candidatura` validada pelo fluxo.
-2. **Quem recebeu?** Um repositório em `vagasscan/repositories/`.
-3. **O que foi processado?** O repositório executa comandos `INSERT`, `SELECT` ou `UPDATE`.
-4. **Onde foi salvo?** No arquivo SQLite configurado em `VAGASSCAN_DATABASE`.
-5. **Qual resultado voltou?** ID criado, dicionário consultado ou confirmação da atualização.
+A chave usa JSON ordenado e SHA-256. Cache válido evita rede. Cache expirado normalmente é ignorado,
+mas pode ser reutilizado por até 24 horas após timeout, conexão, 429 ou 5xx.
 
-SQLite é um banco relacional dentro de um arquivo. SQL parametrizado significa escrever
-`WHERE id = ?` e enviar o valor separadamente. Isso preserva tipos, evita problemas de aspas e
-reduz o risco de injeção de SQL. Transações confirmam todas as alterações juntas ou desfazem o
-lote em caso de exceção.
+Compare:
 
-## Deduplicação
+- 400: filtros inválidos; não usar cache antigo;
+- 401/403/410: credencial recusada; não mascarar com cache;
+- 429: limite temporário; fallback é permitido;
+- 5xx/timeout/conexão: fonte instável; uma repetição e fallback;
+- JSON/estrutura inválida: resposta não confiável; não usar fallback.
 
-1. **De onde veio o dado?** De uma vaga candidata a cadastro.
-2. **Quem recebeu?** `VagaRepository.encontrar_duplicata()`.
-3. **O que foi processado?** Primeiro fonte + ID externo; depois URL sem rastreadores; por último
-   título + empresa + localização sem acentos, caixa ou espaços diferentes.
-4. **Onde foi salvo?** Uma vaga certa é salva; uma coincidência duvidosa não apaga nem altera nada.
-5. **Qual resultado voltou?** O ID novo ou mensagem com a vaga existente e a regra que coincidiu.
+## 3. Migração SQLite
 
-As duas primeiras regras são fortes e possuem índices únicos. A terceira é uma suspeita e a CLI
-permite manter os dois registros após confirmação.
+Abra `database.py`. A versão só entra em `schema_migrations` depois que suas instruções concluem.
+Um banco antigo é marcado como versão inicial sem apagar dados e recebe novas colunas via
+`ALTER TABLE`.
 
-## Análise de texto
+Pesquise nos testes por `test_migracao_preserva_banco_legado`: ele cria um schema anterior, insere
+uma vaga, inicializa a versão nova e confirma dado, colunas e versões.
 
-1. **De onde veio o dado?** Da descrição da vaga e de `data/keywords.json`.
-2. **Quem recebeu?** `AnalisadorPalavrasChave`.
-3. **O que foi processado?** Texto e sinônimos são normalizados; limites de palavras evitam casos
-   como encontrar `java` dentro de `javascript`; a frase indica obrigatório ou desejável.
-4. **Onde foi salvo?** Cada termo encontrado vai para `requisitos_vaga` com categoria e peso.
-5. **Qual resultado voltou?** Uma lista de requisitos, indicando quais já aparecem no perfil.
+## 4. Compatibilidade
 
-O analisador é deliberadamente simples. Ele é fácil de explicar e ajustar, mas uma pessoa deve
-confirmar ambiguidades.
+O analisador encontra termos canônicos e sinônimos, respeita limites de palavra e negações simples.
+A calculadora distribui pontos entre técnica, área, nível, local/modalidade, experiência e formação.
+Requisitos repetidos não inflam a nota; níveis acima do perfil recebem penalidade explícita.
 
-## Cálculo de compatibilidade
+`analisar_temporaria()` executa tudo sem repository. `cadastrar_e_analisar()` usa o mesmo cálculo e
+depois persiste. Assim, a página pública não precisa criar registros para analisar uma descrição.
 
-1. **De onde veio o dado?** Dos requisitos extraídos, vaga e `data/profile.json`.
-2. **Quem recebeu?** `CalculadoraCompatibilidade.calcular()`.
-3. **O que foi processado?** Técnica vale 55 pontos; área 15; nível 10;
-   localização/modalidade 10; experiência 5; formação 5. Obrigatórios pesam 2, comuns 1 e
-   desejáveis 0,75. Itens repetidos são consolidados; pleno perde 6 pontos e sênior/especialista
-   perde 12, sem zerar automaticamente.
-4. **Onde foi salvo?** A nota vai para `vagas.compatibilidade`; requisitos ficam em sua tabela.
-5. **Qual resultado voltou?** Nota, acertos, ausências, itens a confirmar e justificativa.
+## 5. Separação público/privado
 
-Se não houver requisito técnico detectado, a parte técnica recebe metade (27,5) e é marcada para
-confirmação. Escolaridade e experiência são avaliadas fora dessa parcela para não serem contadas
-duas vezes. Assim, silêncio do texto não vira nem reprovação nem aderência total.
+`bootstrap.criar_contexto(publico=True)` escolhe banco e perfil públicos. O contexto privado usa os
+arquivos principais. Rotas públicas nunca recebem o repository privado; isso é mais forte do que
+apenas esconder um botão no HTML.
 
-## Logs
+Teste a separação buscando uma vaga pública e verificando que o repository privado continua vazio.
 
-1. **De onde veio o dado?** De eventos importantes e erros da aplicação.
-2. **Quem recebeu?** O módulo `logging` configurado por `configure_logging()`.
-3. **O que foi processado?** Data, nível, módulo e mensagem são formatados.
-4. **Onde foi salvo?** Por padrão, `logs/vagasscan.log`.
-5. **Qual resultado voltou?** Um histórico técnico para diagnóstico sem poluir o terminal.
+## 6. Login, sessão e CSRF
 
-Nunca registre tokens, senhas ou descrições sensíveis completas.
+`gerar_hash_senha()` usa scrypt com salt aleatório. `verificar_senha()` recalcula e compara em tempo
+constante. A senha pura não é armazenada.
 
-## Testes
+Depois do login, a sessão assinada contém somente o nome administrativo e um token CSRF. Todo POST
+compara o campo oculto com o token da sessão. Logout limpa o cookie.
 
-1. **De onde veio o dado?** De cenários pequenos preparados em `tests/`.
-2. **Quem recebeu?** Funções reais da aplicação chamadas pelo pytest.
-3. **O que foi processado?** Resultados são comparados com comportamentos esperados por `assert`.
-4. **Onde foi salvo?** Bancos e arquivos ficam em pastas temporárias.
-5. **Qual resultado voltou?** Teste aprovado ou falha com linha e diferença encontrada.
+Autoescape do Jinja transforma `<script>` vindo de uma API em texto. A CSP bloqueia scripts inline,
+objetos e framing. Esses controles são complementares: nenhum substitui o outro.
 
-Fixtures evitam repetição. Um teste bom verifica comportamento observável, não detalhes internos
-sem importância.
+## 7. Perfil seguro
 
-## Organização de arquivos
+O formulário transforma textareas em listas. `PerfilService` valida contagem, tamanho, anos e
+conhecimentos obrigatórios. Antes da substituição atômica, copia o arquivo anterior para um backup
+datado ignorado pelo Git.
 
-1. **De onde veio o dado?** De uma pasta escolhida explicitamente pelo usuário.
-2. **Quem recebeu?** `OrganizadorArquivos.planejar()`.
-3. **O que foi processado?** Nome e extensão determinam a categoria e um destino livre.
-4. **Onde foi salvo?** Só após confirmação, na árvore `Carreira/`; o lote entra no histórico JSON
-   por escrita temporária e substituição atômica.
-5. **Qual resultado voltou?** Plano simulado, quantidade movida ou lista de reversões possíveis.
+Salvar não reanalisa automaticamente. O POST separado torna custo e efeito explícitos.
 
-Não existe exclusão. Se um nome já existe durante a simulação, `_1`, `_2` e assim por diante são
-acrescentados. Se o destino ficar ocupado depois da confirmação, a execução para e pede nova
-simulação. Links simbólicos e o diretório do próprio projeto são recusados. Uma falha no meio do
-lote tenta reverter os movimentos já feitos.
+## 8. CLI e web compartilhadas
 
-## Fluxo completo para acompanhar no depurador
+`bootstrap.py` monta os mesmos serviços usados por `main.py` e `web/app.py`. Regras de deduplicação,
+análise, cache e SQL não aparecem nas rotas ou no menu.
 
-1. A CLI recebe a descrição.
-2. `VagaService.cadastrar_e_analisar()` carrega o perfil.
-3. O analisador cria requisitos.
-4. A calculadora produz a nota explicada.
-5. O repositório verifica duplicatas e salva a vaga.
-6. O repositório salva requisitos e nota na mesma base.
-7. A CLI mostra o resultado sem prometer aprovação.
+Isso reduz divergência: corrigir uma regra no serviço altera ambas as interfaces e seus testes.
 
-## Perguntas de entrevista
+## 9. Exercícios
 
-1. Por que este projeto usa SQLite em vez de um servidor PostgreSQL?
-2. O que SQL parametrizado evita?
-3. Qual a diferença entre erro de rede, HTTP 429 e JSON inválido?
-4. Por que o provedor não grava diretamente no banco?
-5. Como os três níveis de deduplicação diferem em confiança?
-6. Por que uma vaga sem requisitos recebe pontuação técnica neutra?
-7. O que acontece com uma transação se uma exceção for lançada?
-8. Como adicionar um status sem espalhar textos pela aplicação?
-9. Que risco existe ao mover arquivos e como o MVP o reduz?
-10. Qual teste você criaria antes de alterar a fórmula de compatibilidade?
-11. Por que fechar uma conexão SQLite exige mais do que usar `with connection`?
-12. Como uma exportação CSV pode virar fórmula no Excel e como o projeto evita isso?
+1. Adicione uma categoria a `keywords.json` e escreva o teste antes da mudança.
+2. Crie um teste para cache com mais de 24 horas e confirme que o fallback é recusado.
+3. Explique por que remoto é filtrado localmente e como isso afeta paginação.
+4. Use `EXPLAIN QUERY PLAN` para o índice de status e o índice de cache.
+5. Adicione um campo opcional ao perfil sem quebrar um JSON antigo.
+6. Teste uma tentativa CSRF em atualização de status.
+7. Explique por que `redirect_url` é salvo sem remover rastreadores, mas a chave de deduplicação usa
+   uma versão normalizada.
+8. Descreva o que precisaria mudar para múltiplos workers e PostgreSQL.
 
-## Exercícios curtos
+## 10. Perguntas de entrevista
 
-1. Adicione `Redis` e seus sinônimos ao JSON; escreva um teste.
-2. Crie um filtro de modalidade no repositório e na CLI.
-3. Adicione uma regra explícita para vaga sênior perder pontos de nível.
-4. Faça a edição de perfil impedir itens repetidos, ignorando acentos e caixa.
-5. Crie um relatório de tempo médio entre candidatura e mudança de status.
-6. Implemente um provedor novo usando arquivo JSON local, sem alterar o serviço.
-7. Teste HTTP 429 usando uma sessão falsa parecida com `tests/test_providers.py`.
-8. Acrescente confirmação individual como alternativa à confirmação em lote do organizador.
+1. Qual a diferença entre autenticação, sessão, autorização e CSRF?
+2. Por que cache não deve conter credenciais?
+3. Quando um fallback antigo é melhor do que um erro e quando é perigoso?
+4. Como uma migração pode preservar um SQLite já usado?
+5. Por que separar banco público e privado além de separar rotas?
+6. Como Jinja autoescape e CSP reduzem riscos diferentes de XSS?
+7. Por que o provedor não grava diretamente no banco?
+8. Quais limites impedem SQLite e rate limiting em memória de escalar horizontalmente?

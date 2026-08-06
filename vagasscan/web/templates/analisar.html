@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Analisar descrição — VagaScan{% endblock %}
+{% block content %}
+<section class="page-header"><div class="container"><p class="eyebrow">ANÁLISE</p><h1>Entenda uma descrição de vaga</h1><p>Cole o texto completo. {% if private %}A gravação só ocorre ao escolher “Salvar como vaga”.{% else %}No modo público, nada é salvo.{% endif %}</p></div></section>
+<section class="section"><div class="container form-result-grid">
+  <form class="form-card" method="post" action="{% if private %}/dashboard/analisar{% else %}/analisar{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+    <div class="field"><label for="titulo">Título (opcional)</label><input id="titulo" name="titulo" maxlength="200" value="{{ values.titulo or '' }}"></div>
+    <div class="field"><label for="empresa">Empresa (opcional)</label><input id="empresa" name="empresa" maxlength="200" value="{{ values.empresa or '' }}"></div>
+    <div class="field"><label for="localizacao">Localização (opcional)</label><input id="localizacao" name="localizacao" maxlength="200" value="{{ values.localizacao or '' }}"></div>
+    <div class="field"><label for="descricao">Descrição</label><textarea id="descricao" name="descricao" maxlength="20000" rows="14" required aria-describedby="description-help">{{ values.descricao or '' }}</textarea><small id="description-help">Máximo de 20.000 caracteres.</small></div>
+    <div class="button-row"><button class="button" name="action" value="analyze" type="submit">Analisar descrição</button>{% if private %}<button class="button button-secondary" name="action" value="save" type="submit">Salvar como vaga</button>{% endif %}</div>
+  </form>
+  <div>
+  {% if resultado %}<section class="analysis-result" aria-live="polite"><div class="score-panel"><span>Compatibilidade estimada</span><strong>{{ '%.1f'|format(resultado.pontuacao) }}%</strong></div><h2>Tecnologias e requisitos</h2><div class="result-block"><strong>Pontos compatíveis</strong><p>{{ resultado.pontos_compativeis|join(', ') or 'Nenhum detectado' }}</p></div><div class="result-block"><strong>Conhecimentos ausentes</strong><p>{{ resultado.conhecimentos_ausentes|join(', ') or 'Nenhum detectado' }}</p></div><div class="result-block"><strong>Confirmar manualmente</strong><p>{{ resultado.confirmar|join(', ') or 'Nenhum item' }}</p></div><div class="result-block"><strong>Justificativa</strong><p>{{ resultado.justificativa }}</p></div><div class="category-list">{% for category, items in requisitos|groupby('categoria') %}<h3>{{ category|title }}</h3><p>{{ items|map(attribute='requisito')|join(', ') }}</p>{% endfor %}</div><div class="notice"><p>A compatibilidade é uma estimativa e não garante aprovação.</p></div></section>{% else %}<div class="empty side-empty"><h2>O resultado aparecerá aqui</h2><p>O VagaScan identifica tecnologias, habilidades, experiência, escolaridade, idiomas e itens que merecem confirmação manual.</p></div>{% endif %}
+  </div>
+</div></section>
+{% endblock %}

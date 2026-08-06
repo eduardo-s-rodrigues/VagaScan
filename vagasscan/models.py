@@ -45,7 +45,38 @@ class Vaga:
     compatibilidade: float | None = None
     status: str = "encontrada"
     observacoes: str = ""
+    salario_min: float | None = None
+    salario_max: float | None = None
+    categoria: str = ""
+    tipo_contrato: str = ""
+    jornada: str = ""
     id: int | None = None
+
+
+@dataclass(slots=True)
+class ConsultaVagas:
+    termo: str = ""
+    localizacao: str = ""
+    pagina: int = 1
+    resultados_por_pagina: int = 20
+    remoto: bool = False
+    tipo_contrato: str = ""
+    jornada: str = ""
+    ordenacao: str = "relevance"
+    distancia_km: int | None = None
+    pais: str = "br"
+
+
+@dataclass(slots=True)
+class ResultadoBusca:
+    vagas: list[Vaga] = field(default_factory=list)
+    pagina: int = 1
+    resultados_por_pagina: int = 20
+    total_aproximado: int = 0
+    veio_cache: bool = False
+    cache_desatualizado: bool = False
+    cache_expira_em: str | None = None
+    erros: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

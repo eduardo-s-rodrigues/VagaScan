@@ -29,6 +29,59 @@ class Settings:
     api_token_header: str = "Authorization"
     api_requires_token: bool = False
     api_timeout: float = 10.0
+    public_database_path: Path = PROJECT_ROOT / "data" / "vagasscan_public.db"
+    public_profile_path: Path = PROJECT_ROOT / "data" / "profile_public.json"
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    adzuna_country: str = "br"
+    adzuna_results_per_page: int = 20
+    adzuna_timeout: float = 10.0
+    adzuna_cache_minutes: int = 30
+    public_search_cooldown_seconds: int = 15
+    public_search_limit_per_hour: int = 30
+    admin_search_limit_per_hour: int = 100
+    admin_username: str = "admin"
+    admin_password_hash: str = ""
+    session_secret: str = ""
+    public_demo: bool = True
+    enable_file_organizer_web: bool = False
+    file_organizer_source: Path | None = None
+    file_organizer_destination: Path | None = None
+    host: str = "127.0.0.1"
+    port: int = 8000
+    environment: str = "development"
+    base_url: str = "http://127.0.0.1:8000"
+    cookie_secure: bool = False
+
+
+def _bool_from_env(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "sim", "yes", "on"}
+
+
+def _float_from_env(name: str, default: float, minimum: float = 1.0) -> float:
+    import os
+
+    try:
+        value = float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+    return value if math.isfinite(value) and value >= minimum else default
+
+
+def _int_from_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    import os
+
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+    return min(maximum, max(minimum, value))
+
+
+def _optional_path(value: str | None) -> Path | None:
+    return _path_from_env(value, value) if value and value.strip() else None
 
 
 def load_settings(env_path: Path | None = None) -> Settings:
@@ -36,12 +89,7 @@ def load_settings(env_path: Path | None = None) -> Settings:
     import os
 
     load_dotenv(env_path or PROJECT_ROOT / ".env")
-    try:
-        timeout = float(os.getenv("JOB_API_TIMEOUT", "10"))
-    except ValueError:
-        timeout = 10.0
-    if not math.isfinite(timeout) or timeout < 1:
-        timeout = 10.0
+    timeout = _float_from_env("JOB_API_TIMEOUT", 10.0)
     token_header = os.getenv("JOB_API_TOKEN_HEADER", "Authorization").strip()
     return Settings(
         database_path=_path_from_env(os.getenv("VAGASSCAN_DATABASE"), "data/vagasscan.db"),
@@ -54,9 +102,51 @@ def load_settings(env_path: Path | None = None) -> Settings:
         api_url=os.getenv("JOB_API_URL", "").strip(),
         api_token=os.getenv("JOB_API_TOKEN", "").strip(),
         api_token_header=token_header or "Authorization",
-        api_requires_token=os.getenv("JOB_API_REQUIRES_TOKEN", "false").lower()
-        in {"1", "true", "sim", "yes"},
+        api_requires_token=_bool_from_env(os.getenv("JOB_API_REQUIRES_TOKEN")),
         api_timeout=timeout,
+        public_database_path=_path_from_env(
+            os.getenv("VAGASSCAN_PUBLIC_DATABASE"), "data/vagasscan_public.db"
+        ),
+        public_profile_path=_path_from_env(
+            os.getenv("VAGASSCAN_PUBLIC_PROFILE"), "data/profile_public.json"
+        ),
+        adzuna_app_id=os.getenv("ADZUNA_APP_ID", "").strip(),
+        adzuna_app_key=os.getenv("ADZUNA_APP_KEY", "").strip(),
+        adzuna_country=os.getenv("ADZUNA_COUNTRY", "br").strip().lower() or "br",
+        adzuna_results_per_page=_int_from_env(
+            "ADZUNA_RESULTS_PER_PAGE", 20, 1, 50
+        ),
+        adzuna_timeout=_float_from_env("ADZUNA_TIMEOUT", 10.0),
+        adzuna_cache_minutes=_int_from_env("ADZUNA_CACHE_MINUTES", 30, 1, 1440),
+        public_search_cooldown_seconds=_int_from_env(
+            "VAGASSCAN_PUBLIC_SEARCH_COOLDOWN_SECONDS", 15, 1, 300
+        ),
+        public_search_limit_per_hour=_int_from_env(
+            "VAGASSCAN_PUBLIC_SEARCH_LIMIT_PER_HOUR", 30, 1, 1000
+        ),
+        admin_search_limit_per_hour=_int_from_env(
+            "VAGASSCAN_ADMIN_SEARCH_LIMIT_PER_HOUR", 100, 1, 5000
+        ),
+        admin_username=os.getenv("VAGASSCAN_ADMIN_USERNAME", "admin").strip() or "admin",
+        admin_password_hash=os.getenv("VAGASSCAN_ADMIN_PASSWORD_HASH", "").strip(),
+        session_secret=os.getenv("VAGASSCAN_SESSION_SECRET", "").strip(),
+        public_demo=_bool_from_env(os.getenv("VAGASSCAN_PUBLIC_DEMO"), True),
+        enable_file_organizer_web=_bool_from_env(
+            os.getenv("VAGASSCAN_ENABLE_FILE_ORGANIZER_WEB")
+        ),
+        file_organizer_source=_optional_path(os.getenv("VAGASSCAN_FILE_ORGANIZER_SOURCE")),
+        file_organizer_destination=_optional_path(
+            os.getenv("VAGASSCAN_FILE_ORGANIZER_DESTINATION")
+        ),
+        host=os.getenv("VAGASSCAN_HOST", "127.0.0.1").strip() or "127.0.0.1",
+        port=_int_from_env("VAGASSCAN_PORT", 8000, 1, 65535),
+        environment=os.getenv("VAGASSCAN_ENV", "development").strip().lower()
+        or "development",
+        base_url=os.getenv(
+            "VAGASSCAN_BASE_URL", "http://127.0.0.1:8000"
+        ).strip()
+        or "http://127.0.0.1:8000",
+        cookie_secure=_bool_from_env(os.getenv("VAGASSCAN_COOKIE_SECURE")),
     )
 
 

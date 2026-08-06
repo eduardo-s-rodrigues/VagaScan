@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Área privada — VagaScan{% endblock %}
+{% block content %}
+<section class="auth-section"><div class="auth-card"><p class="eyebrow">ACESSO RESTRITO</p><h1>Área privada</h1><p>Somente o administrador do projeto pode acessar candidaturas, perfil e relatórios.</p>{% if not admin_enabled %}<div class="alert">O login ainda não está configurado. Gere um hash de senha e um segredo de sessão.</div>{% endif %}{% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}<form method="post" action="/login"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="field"><label for="username">Usuário</label><input id="username" name="username" maxlength="100" autocomplete="username" required></div><div class="field"><label for="password">Senha</label><input id="password" name="password" type="password" maxlength="500" autocomplete="current-password" required></div><button class="button full" type="submit">Entrar</button></form></div></section>
+{% endblock %}

@@ -102,6 +102,24 @@ def test_cli_explica_indisponibilidade_sem_api(
     assert "cadastro manual" in saida
 
 
+def test_cli_adzuna_sem_credenciais_volta_ao_menu(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = object.__new__(CLI)
+    cli.settings = Settings(
+        database_path=tmp_path / "db.sqlite",
+        demo_database_path=tmp_path / "demo.sqlite",
+        profile_path=tmp_path / "perfil.json",
+        keywords_path=tmp_path / "keywords.json",
+        log_path=tmp_path / "log.txt",
+    )
+    monkeypatch.setattr("builtins.input", lambda _: "1")
+    cli.buscar_vagas()
+    saida = capsys.readouterr().out
+    assert "Adzuna ainda não está configurada" in saida
+    assert "demonstração continuam disponíveis" in saida
+
+
 def test_cli_com_banco_vazio_exibe_mensagem(capsys: pytest.CaptureFixture[str]) -> None:
     CLI._mostrar_lista([])
     assert "Nenhuma vaga encontrada" in capsys.readouterr().out

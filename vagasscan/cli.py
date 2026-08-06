@@ -16,11 +16,13 @@ from vagasscan.models import (
     ETAPAS_CANDIDATURA,
     STATUS_VAGAS,
     Candidatura,
+    ConsultaVagas,
     ResultadoCompatibilidade,
     Vaga,
 )
 from vagasscan.providers import (
     ErroProvedor,
+    ProvedorAdzuna,
     ProvedorDemonstracao,
     ProvedorHttpConfiguravel,
 )
@@ -177,12 +179,23 @@ class CLI:
         )
 
     def buscar_vagas(self) -> None:
-        print("1. Demonstração local\n2. HTTP configurável")
+        print("1. Adzuna — vagas reais\n2. Demonstração local\n3. HTTP configurável")
         escolha = perguntar("Fonte", obrigatorio=True)
         if escolha is None:
             return
-        provedor = ProvedorDemonstracao() if escolha == "1" else None
+        provedor = ProvedorAdzuna(self.settings) if escolha == "1" else None
+        if escolha == "1" and (
+            not self.settings.adzuna_app_id or not self.settings.adzuna_app_key
+        ):
+            print(
+                "A integração com a Adzuna ainda não está configurada. Preencha "
+                "ADZUNA_APP_ID e ADZUNA_APP_KEY no arquivo .env."
+            )
+            print("O cadastro manual, a importação e a demonstração continuam disponíveis.")
+            return
         if escolha == "2":
+            provedor = ProvedorDemonstracao()
+        if escolha == "3":
             provedor = ProvedorHttpConfiguravel(self.settings)
         if not provedor:
             print("Fonte inválida.")
@@ -193,28 +206,65 @@ class CLI:
         local = perguntar("Localização")
         if local is None:
             return
-        service = self.vaga_service
+        consulta = ConsultaVagas(
+            termo=termo or "",
+            localizacao=local or "",
+            resultados_por_pagina=self.settings.adzuna_results_per_page,
+            pais=self.settings.adzuna_country,
+        )
         if escolha == "1":
-            demo_database = Database(self.settings.demo_database_path)
-            demo_database.initialize()
-            service = VagaService(
-                VagaRepository(demo_database),
-                AnalisadorPalavrasChave(self.settings.keywords_path),
-                CalculadoraCompatibilidade(),
-                self.settings.profile_path,
+            pagina = perguntar("Página", padrao="1")
+            quantidade = perguntar(
+                "Resultados por página", padrao=str(self.settings.adzuna_results_per_page)
             )
-            print(f"Dados fictícios serão mantidos separados em {demo_database.path}")
+            remoto = perguntar("Somente remoto? (s/N)")
+            contrato = perguntar("Contrato (permanent/contract ou vazio)")
+            jornada = perguntar("Jornada (full_time/part_time ou vazio)")
+            ordenacao = perguntar(
+                "Ordenação (relevance/date/salary/hybrid/default)", padrao="relevance"
+            )
+            distancia = perguntar("Distância em km (1-100 ou vazio)")
+            if None in {pagina, quantidade, remoto, contrato, jornada, ordenacao, distancia}:
+                return
+            try:
+                consulta.pagina = int(pagina or "1")
+                consulta.resultados_por_pagina = int(
+                    quantidade or self.settings.adzuna_results_per_page
+                )
+                consulta.distancia_km = int(distancia) if distancia else None
+            except ValueError:
+                print("Página, quantidade ou distância inválida.")
+                return
+            consulta.remoto = (remoto or "").strip().lower() in {"s", "sim"}
+            consulta.tipo_contrato = contrato or ""
+            consulta.jornada = jornada or ""
+            consulta.ordenacao = ordenacao or "relevance"
+        service = self.vaga_service
         try:
-            resultado = service.buscar_e_salvar(provedor, termo, local)
-        except ErroProvedor as exc:
+            if escolha == "2":
+                demo_database = Database(self.settings.demo_database_path)
+                demo_database.initialize()
+                service = VagaService(
+                    VagaRepository(demo_database),
+                    AnalisadorPalavrasChave(self.settings.keywords_path),
+                    CalculadoraCompatibilidade(),
+                    self.settings.profile_path,
+                )
+                print(f"Dados fictícios serão mantidos separados em {demo_database.path}")
+            resultado = service.buscar_e_salvar(provedor, consulta)
+        except (ErroProvedor, ValueError, OSError) as exc:
             print(f"A fonte não pôde ser consultada: {exc}")
             print("O cadastro manual e a importação de descrições continuam disponíveis.")
             return
         print(
-            f"Recebidas: {resultado['recebidas']} | cadastradas: "
+            f"Página: {resultado['pagina']} | total aproximado: "
+            f"{resultado['total_aproximado']} | recebidas: {resultado['recebidas']} | cadastradas: "
             f"{len(resultado['cadastradas'])} | duplicadas: {len(resultado['duplicadas'])} | "
             f"erros: {len(resultado['erros'])}"
         )
+        if resultado["veio_cache"]:
+            sufixo = " desatualizado" if resultado["cache_desatualizado"] else " válido"
+            print(f"Resultado fornecido pelo cache{sufixo}.")
         for mensagem in [*resultado["duplicadas"], *resultado["erros"]]:
             print(f"- {mensagem}")
 
@@ -344,6 +394,7 @@ class CLI:
         print("\n" + "=" * 60)
         for campo in (
             "id", "titulo", "empresa", "localizacao", "modalidade", "nivel", "fonte",
+            "salario_min", "salario_max", "categoria", "tipo_contrato", "jornada",
             "status", "compatibilidade", "link", "data_publicacao", "data_encontrada",
             "observacoes", "descricao",
         ):

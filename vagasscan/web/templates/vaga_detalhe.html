@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ vaga.titulo }} — VagaScan{% endblock %}
+{% block content %}
+<section class="page-header"><div class="container"><p class="eyebrow">{{ vaga.fonte }}</p><h1>{{ vaga.titulo }}</h1><p>{{ vaga.empresa }} • {{ vaga.localizacao }}</p></div></section>
+<section class="section"><div class="container detail-grid">
+  <article class="detail-main">
+    <div class="score-panel"><span>Compatibilidade estimada</span><strong>{{ '%.1f'|format(vaga.compatibilidade or 0) }}%</strong></div>
+    <h2>Descrição</h2><div class="description">{{ vaga.descricao }}</div>
+    <h2>Requisitos extraídos</h2><div class="tags">{% for item in requisitos %}<span class="tag {% if item.encontrado_no_perfil %}tag-ok{% endif %}">{{ item.requisito }} · {{ item.categoria }}</span>{% else %}<p>Nenhum requisito identificado automaticamente.</p>{% endfor %}</div>
+    {% if analise %}<div class="match-columns"><div><strong>Pontos positivos</strong><p>{{ analise.pontos_compativeis|join(', ') or 'Nenhum detectado' }}</p></div><div><strong>Conhecimentos ausentes</strong><p>{{ analise.conhecimentos_ausentes|join(', ') or 'Nenhum detectado' }}</p></div></div><div class="result-block"><strong>Requisitos para confirmar manualmente</strong><p>{{ analise.confirmar|join(', ') or 'Nenhum item' }}</p></div><div class="result-block"><strong>Justificativa da pontuação</strong><p>{{ analise.justificativa }}</p></div>{% endif %}
+    <div class="notice"><strong>Como interpretar</strong><p>A compatibilidade é uma estimativa baseada em regras e palavras-chave. Ela não garante aprovação em processo seletivo.</p></div>
+    {% if vaga.fonte == 'adzuna' %}<div class="attribution-box"><p>Vagas fornecidas pela Adzuna.</p><a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></div>{% endif %}
+  </article>
+  <aside class="detail-aside"><h2>Informações</h2><dl><dt>Empresa</dt><dd>{{ vaga.empresa }}</dd><dt>Localização</dt><dd>{{ vaga.localizacao }}</dd><dt>Modalidade</dt><dd>{{ vaga.modalidade }}</dd><dt>Nível</dt><dd>{{ vaga.nivel }}</dd><dt>Contrato</dt><dd>{{ vaga.tipo_contrato or 'Não informado' }}</dd><dt>Jornada</dt><dd>{{ vaga.jornada or 'Não informada' }}</dd><dt>Categoria</dt><dd>{{ vaga.categoria or 'Não informada' }}</dd><dt>Salário</dt><dd>{% if vaga.salario_min or vaga.salario_max %}{{ vaga.salario_min or '—' }} a {{ vaga.salario_max or '—' }}{% else %}Não informado{% endif %}</dd></dl>{% if url_http_segura(vaga.link) %}<a class="button full" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga original</a>{% endif %}
+  {% if private %}<form method="post" action="/dashboard/vagas/{{ vaga.id }}/interessante"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary full" type="submit">Marcar como interessante</button></form><form method="post" action="/dashboard/vagas/{{ vaga.id }}/status" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label for="status">Atualizar status</label><select id="status" name="status">{% for status in statuses %}<option value="{{ status }}" {% if status == vaga.status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select><label for="observacao">Observação</label><input id="observacao" name="observacao" maxlength="1000"><button class="button full" type="submit">Salvar status</button></form>{% endif %}</aside>
+</div></section>
+{% endblock %}

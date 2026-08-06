@@ -1,140 +1,131 @@
-# Arquitetura do VagasScan
+# Arquitetura do VagaScan
 
 ## Visão geral
 
-O projeto usa camadas pequenas, sem framework web e sem ORM. A regra principal é: entrada conversa
-com serviço; serviço coordena regras; repositório fala com SQLite. Provedores apenas obtêm e
-convertem vagas.
+O VagaScan continua sendo uma única aplicação Python. CLI e FastAPI são duas interfaces para a
+mesma camada de serviços; não existem backends duplicados.
 
 ```text
-CLI / comando
-    |
-    v
-VagaService -----> ProvedorVagas
-    |                  |-- demonstração local
-    |                  `-- HTTP configurável
-    |-- AnalisadorPalavrasChave <--- keywords.json
-    |-- CalculadoraCompatibilidade <--- profile.json
-    `-- VagaRepository / CandidaturaRepository
-                         |
-                         v
-                       SQLite
+CLI                         FastAPI + Jinja2
+ |                                |
+ `---------- AppContext ----------'
+                |
+       VagaService / PerfilService
+        |        |           |
+  provedores  analisadores  repositories
+        |                    |
+ Adzuna/demo/HTTP       SQLite + migrações
 ```
 
-## Módulos e responsabilidades
+`bootstrap.criar_contexto()` monta banco, repositories, analisadores, cache, relatórios e serviços.
+O contexto privado usa banco/perfil reais; o público usa arquivos separados e sanitizados.
 
-| Módulo | Responsabilidade |
+## Camadas
+
+| Camada | Responsabilidade |
 |---|---|
-| `main.py` | interpreta argumentos, monta dependências, inicializa banco e abre CLI |
-| `cli.py` | mostra menus, valida entrada, confirma arquivos e apresenta resultados |
-| `config.py` | carrega `.env`, resolve `pathlib.Path` e configura logging |
-| `models.py` | mantém dataclasses simples e a lista canônica de status |
-| `database.py` | abre conexões, transações e cria schema/índices idempotentes |
-| `repositories/` | contém SQL parametrizado de vagas, requisitos e candidaturas |
-| `providers/` | define contrato de busca e adaptadores local/HTTP |
-| `analyzers/` | extrai palavras-chave e calcula aderência explicável |
-| `services/` | coordena busca, deduplicação, análise e persistência |
-| `reports/` | agrega dados e exporta terminal, Markdown ou CSV |
-| `file_organizer/` | classifica, simula, move sem sobrescrever e desfaz |
-| `utils/` | normaliza texto e URL |
+| `providers/` | obter e converter vagas sem persistir |
+| `services/` | coordenar cache, análise, deduplicação, persistência e perfil |
+| `repositories/` | executar SQL parametrizado e devolver estruturas simples |
+| `analyzers/` | extrair requisitos e calcular compatibilidade determinística |
+| `web/routes/` | validar entrada, autorizar e apresentar casos de uso |
+| `cli.py` | interação de terminal sobre os mesmos serviços |
+| `database.py` | conexões, transações, índices e migrações |
 
-## Fluxo principal
+## Contrato de busca
 
-### Busca
+`ConsultaVagas` representa termo, localização, página, quantidade, remoto, contrato, jornada,
+ordenação, distância e país. `ResultadoBusca` devolve vagas, total aproximado, página, estado do
+cache e erros seguros.
 
-1. A CLI escolhe um `ProvedorVagas`.
-2. O provedor devolve modelos `Vaga`; nenhuma persistência ocorre ali.
-3. O serviço carrega perfil, extrai requisitos e calcula compatibilidade.
-4. O repositório procura duplicata na ordem definida.
-5. Vaga, nota e requisitos são gravados na mesma transação; falhas individuais são relatadas.
+`ProvedorVagas.buscar(termo, localizacao)` foi preservado. `consultar(ConsultaVagas)` oferece o
+contrato rico; a implementação padrão mantém provedores antigos compatíveis.
 
-### Cadastro manual
+### Adzuna
 
-O fluxo começa diretamente no passo 3. Assim, o programa não depende da internet para iniciar ou
-entregar sua função principal.
+`ProvedorAdzuna` usa o endpoint oficial com país e página no caminho. Credenciais seguem somente em
+`params`, nunca em headers ou logs. Página, país e valores enumerados são validados antes da rede.
+
+O provedor converte objetos aninhados, preserva `redirect_url`, aceita campos ausentes e classifica
+falhas. Uma repetição curta é permitida para timeout, conexão ou 5xx. HTTP 429 não é repetido.
+
+O filtro remoto é posterior à resposta porque a API oficial não oferece parâmetro equivalente. O
+total aproximado continua sendo o total informado pela fonte antes da heurística local.
+
+### Cache
+
+`CacheBuscaRepository` cria uma chave SHA-256 de JSON canônico contendo apenas consulta e provedor.
+O resultado normalizado é salvo em `cache_buscas`; app ID e chave não fazem parte do modelo de
+consulta e não podem entrar no cache.
+
+O serviço consulta cache válido antes da rede. Após falha transitória ou limite, pode usar um cache
+expirado criado há no máximo 24 horas, marcando `veio_cache` e `cache_desatualizado`.
+
+## Fluxos
+
+### Busca pública
+
+1. FastAPI valida limites e rate limiting.
+2. O provedor devolve vagas, possivelmente via cache.
+3. `VagaService` analisa com `profile_public.json`.
+4. Vagas/requisitos são deduplicados e salvos em `vagasscan_public.db`.
+5. O template recebe somente objetos públicos e metadados seguros.
+
+O banco principal não participa desse fluxo.
+
+### Busca privada/CLI
+
+O fluxo é equivalente, mas usa `profile.json` e o banco principal. A demonstração da CLI continua
+usando seu banco fictício próprio.
+
+### Análise temporária
+
+`analisar_temporaria()` extrai requisitos e calcula a nota sem chamar repository. O modo privado só
+persiste quando o administrador escolhe explicitamente “Salvar como vaga”.
 
 ### Candidatura
 
-Uma candidatura referencia uma vaga por chave estrangeira. A vaga muda para
-`candidatura_enviada`, e cada mudança de status cria uma linha imutável em `historico_status`.
-Correções manuais continuam possíveis; estados finais apenas geram aviso na CLI.
-Registro da candidatura, atualização da etapa, status da vaga e histórico participam da mesma
-transação, evitando um funil parcialmente atualizado.
+Registro ou alteração de etapa ocorre em transação e sincroniza o status da vaga com histórico. A
+área pública não possui acesso ao repository de candidaturas.
 
-### Documentos
+### Perfil
 
-Primeiro é criado um `Movimentacao` para cada arquivo. A simulação não cria pastas. Depois de mostrar
-todos os pares origem/destino, a CLI solicita confirmação em lote. Movimentos reais entram no
-histórico. O desfazer valida todos os caminhos antes de começar para evitar uma reversão parcial
-previsível. O diretório do projeto, links simbólicos e destinos ocupados depois da simulação são
-rejeitados. Falhas durante o lote tentam rollback dos arquivos já movidos.
+`PerfilService` valida listas, textos e anos, remove duplicatas, cria backup datado e substitui o
+JSON por arquivo temporário. Reanálise é uma ação POST protegida, separada do salvamento.
 
-## Decisões técnicas
+## Banco e migrações
 
-- **SQLite e SQL explícito:** menor instalação e bom valor didático; quatro tabelas não justificam
-  ORM.
-- **Dataclasses:** deixam o formato interno visível sem criar hierarquia complexa.
-- **Configuração JSON:** perfil e vocabulário mudam sem alteração no código.
-- **Interface abstrata de provedor:** um método separa dependência externa do caso de uso.
-- **Provedor HTTP genérico:** não inventa endpoint nem prende o aluno a fornecedor; exige URL real.
-- **Pontuação determinística:** a mesma entrada produz a mesma justificativa, sem custo de IA.
-- **`pathlib`:** caminhos legíveis e portáveis entre Windows, Linux e macOS.
-- **Logging em arquivo:** registra operações relevantes e preserva mensagens amigáveis no terminal.
-- **Exportação defensiva:** não sobrescreve sem autorização, usa arquivo temporário e neutraliza
-  fórmulas em CSV.
+`schema_migrations` registra versões:
 
-## Banco e integridade
+1. schema original de vagas, requisitos, candidaturas e histórico;
+2. salário, categoria, contrato e jornada;
+3. cache de buscas e índice por provedor/expiração.
 
-`Database.initialize()` pode rodar várias vezes. Chaves estrangeiras são ativadas por conexão.
-Índices únicos parciais protegem fonte + ID e link somente quando não vazios. A chave normalizada de
-conteúdo é indexada, mas não é única, pois coincidências incertas podem ser mantidas após confirmação.
+Um banco anterior sem controle de versão é reconhecido como versão 1 e migrado. Colunas são
+adicionadas apenas quando ausentes. Migrações e registro da versão participam da mesma transação.
+`PRAGMA optimize` atualiza informações do planejador após inicialização.
 
-Transações confirmam (`commit`) ao concluir e revertem (`rollback`) ao ocorrer exceção. Valores de
-usuário sempre entram por parâmetros. Os nomes de coluna dinâmicos dos relatórios passam por uma
-lista fechada antes da interpolação. Conexões de consulta usam um context manager próprio porque o
-`with` nativo do `sqlite3.Connection` controla transação, mas não fecha o arquivo.
+## Web e segurança
 
-## Fórmula de compatibilidade
+FastAPI serve HTML Jinja2 e arquivos locais. `SessionMiddleware` assina a sessão; ela guarda apenas
+administrador e token CSRF. Senhas usam scrypt; segredos permanecem no ambiente.
 
-```text
-nota = técnica (0..55)
-     + área (0 ou 15)
-     + nível (0 ou 10)
-     + local/remoto (0 ou 10)
-     + experiência (0..5)
-     + formação (0 ou 5)
-     - penalidade de nível (0, 6 ou 12)
-```
+Todas as decisões de autorização são server-side. Rotas `/dashboard` consultam o contexto privado;
+rotas públicas recebem apenas o contexto público. Jinja aplica autoescape e links externos passam
+por validação HTTP(S).
 
-A parte técnica é `55 × pesos compatíveis / pesos encontrados`. Peso obrigatório é 2, normal é 1 e
-desejável é 0,75. Conhecimentos iguais são consolidados; escolaridade e experiência ficam fora da
-parcela técnica. Sem termos, usa 27,5 e exige conferência humana. Vaga plena perde 6 pontos e vaga
-sênior/especialista perde 12. O valor final é limitado a 0–100. Essa simplicidade é intencional: o
-estudante consegue defender cada decisão em entrevista.
+A CSP permite apenas recursos locais, bloqueia objetos e framing. Headers complementares reduzem
+riscos de MIME sniffing, referrer, permissões e clickjacking. Limites em memória reduzem abuso do
+MVP, mas não substituem Redis ou gateway em múltiplas instâncias.
 
-## Como adicionar um provedor
+O organizador web só funciona com flag e caminhos definidos no servidor. O navegador nunca escolhe
+caminhos, e a implementação existente continua bloqueando projeto, symlinks, destinos ocupados e
+falhas parciais.
 
-1. Consulte a documentação oficial da fonte e confirme que o uso da API é permitido.
-2. Crie um módulo em `vagasscan/providers/`.
-3. Herde de `ProvedorVagas`, defina `nome` e implemente `buscar(termo, localizacao)`.
-4. Converta a resposta para uma lista de `Vaga`; não grave no banco dentro do provedor.
-5. Traduza timeout, limite, autenticação e resposta inválida para `ErroProvedor`.
-6. Exporte a classe em `providers/__init__.py` e ofereça a escolha na CLI.
-7. Escreva testes com sessão falsa; não faça chamadas reais na suíte.
-8. Adicione somente variáveis necessárias ao `.env.example`, nunca chaves reais.
+## Decisões e limites
 
-O cliente genérico valida o esquema HTTP/HTTPS, rejeita credenciais embutidas na URL, fecha a sessão
-que criou e não inclui tokens ou a URL completa em mensagens de falha de rede.
-
-Não é necessário alterar `VagaService`, analisadores, repositórios ou schema.
-
-## Limites do MVP
-
-O aplicativo é monousuário, local e síncrono. Não possui paginação genérica, agendamento, download
-de anexos, autenticação, backup automático, interface gráfica, análise semântica avançada ou
-automação de candidatura. A camada HTTP pressupõe que o serviço aceite `q` e `location`; contratos
-diferentes exigem um adaptador próprio. Essas restrições mantêm o projeto seguro e compreensível.
-Movimentos de arquivos não podem ser totalmente atômicos entre volumes; o programa usa validação
-prévia, rollback de melhor esforço e registro de falha parcial. O histórico local não é assinado
-criptograficamente. A integração HTTP foi validada com sessões controladas, não contra uma API real
-sem configuração fornecida pelo usuário.
+- SQL explícito e dataclasses preservam o valor didático do projeto.
+- FastAPI usa funções síncronas de domínio com conexões SQLite curtas por operação.
+- Não há ORM, SPA, cadastro público, upload, fila, worker ou IA paga.
+- Um processo Uvicorn é a configuração suportada do MVP.
+- PostgreSQL e rate limiting compartilhado são necessários para escala horizontal.

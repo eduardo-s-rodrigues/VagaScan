@@ -1,58 +1,28 @@
-# VagasScan
+# VagaScan
 
-VagasScan é um MVP em Python para encontrar, analisar e acompanhar vagas de tecnologia para
-profissionais iniciantes. Ele funciona no terminal, salva os dados em SQLite e continua útil
-mesmo sem API externa: vagas podem ser cadastradas manualmente, importadas por uma descrição
-colada ou carregadas do provedor local de demonstração.
+Aplicação Python para buscar, analisar e acompanhar vagas de tecnologia. O mesmo núcleo atende a
+CLI e a interface web: provedores obtêm anúncios, serviços analisam e coordenam casos de uso,
+repositories usam SQLite e templates Jinja2 renderizam o site no servidor.
 
-> A compatibilidade é uma estimativa baseada em palavras-chave. Ela ajuda a priorizar a leitura e
-> nunca deve ser interpretada como garantia de contratação.
+> A compatibilidade é uma estimativa baseada em regras e palavras-chave. Ela não garante aprovação
+> em processo seletivo e não substitui a leitura humana.
 
 ## Funcionalidades
 
-- busca por provedor local ou por uma API HTTP configurada pelo usuário;
-- cadastro manual e importação de descrição;
-- deduplicação por identificador externo, link e conteúdo normalizado;
-- extração editável de tecnologias e requisitos;
-- compatibilidade explicada, de 0 a 100;
-- perfil editável em JSON;
-- funil de status, candidatura, próxima ação e histórico;
-- filtros por status, área, local, fonte e compatibilidade;
-- relatórios no terminal, Markdown e CSV;
-- organização de documentos com simulação, confirmação, nomes não conflitantes e desfazer;
-- logs em arquivo, SQL parametrizado e testes automatizados.
+- integração oficial com a Adzuna, paginação, filtros documentados e `redirect_url` preservado;
+- cache SQLite com expiração e fallback limitado para falhas transitórias/HTTP 429;
+- provedor local fictício e provedor HTTP genérico configurável;
+- cadastro manual, importação de descrição e análise explicável;
+- deduplicação, status, candidaturas, próximas ações e histórico;
+- dashboard, relatórios, edição segura do perfil e reanálise confirmada;
+- área pública isolada do perfil e banco pessoais;
+- autenticação de administrador único, CSRF, cookies seguros e headers HTTP;
+- organizador de documentos local, simulado e explicitamente condicionado na web;
+- testes sem consumo da cota real da Adzuna.
 
-O projeto não raspa LinkedIn/Indeed, não envia candidaturas e não usa IA paga.
+## Requisitos e instalação no Windows
 
-## Exemplo no terminal
-
-```text
-=== VagasScan ===
-1. Buscar vagas
-2. Cadastrar vaga manualmente
-...
-14. Exportar relatório
-15. Sair
-
-Compatibilidade aproximada: 87.5%
-A pontuação é uma estimativa e não garante aprovação.
-Pontos compatíveis: Python, SQL, Git, JSON
-Conhecimentos ausentes: Docker
-Confirmar manualmente: Experiência de 1 ano(s)
-Justificativa: Técnica 47.5/55; área compatível; nível compatível; ...
-```
-
-Ao organizar documentos, nada é movido antes da confirmação:
-
-```text
-Curriculos: C:\Entrada\curriculo.pdf -> C:\Carreira\Curriculos\curriculo.pdf
-Testes_Tecnicos: C:\Entrada\desafio.zip -> C:\Carreira\Testes_Tecnicos\desafio.zip
-Sair do modo de simulação e mover todos os arquivos? [s/N]:
-```
-
-## Instalação no Windows
-
-Requer Python 3.12 ou mais recente. No PowerShell, a partir da pasta do projeto:
+Requer Python 3.12 ou mais recente. No PowerShell:
 
 ```powershell
 python --version
@@ -64,19 +34,51 @@ python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
-O `Set-ExecutionPolicy` vale apenas para a janela atual e pode ser omitido quando a política já
-permite ativar o ambiente.
+O `Set-ExecutionPolicy` vale somente para a janela atual. Nunca envie `.env`, bancos, logs ou
+backups de perfil ao Git.
 
 ## Configuração
 
-O `.env` é opcional. O arquivo real é ignorado pelo Git; nunca publique tokens.
+Os caminhos padrão mantêm três finalidades separadas:
+
+- `VAGASSCAN_DATABASE`: dados privados da CLI e do administrador;
+- `VAGASSCAN_DEMO_DATABASE`: registros fictícios da demonstração local;
+- `VAGASSCAN_PUBLIC_DATABASE`: buscas feitas por visitantes;
+- `VAGASSCAN_PROFILE`: perfil real;
+- `VAGASSCAN_PUBLIC_PROFILE`: perfil sanitizado de demonstração.
+
+### Adzuna
+
+Cadastre uma aplicação no portal da Adzuna e preencha localmente:
 
 ```dotenv
-VAGASSCAN_DATABASE=data/vagasscan.db
-VAGASSCAN_DEMO_DATABASE=data/vagasscan_demo.db
-VAGASSCAN_PROFILE=data/profile.json
-VAGASSCAN_KEYWORDS=data/keywords.json
-VAGASSCAN_LOG=logs/vagasscan.log
+ADZUNA_APP_ID=
+ADZUNA_APP_KEY=
+ADZUNA_COUNTRY=br
+ADZUNA_RESULTS_PER_PAGE=20
+ADZUNA_TIMEOUT=10
+ADZUNA_CACHE_MINUTES=30
+```
+
+O adaptador usa `GET https://api.adzuna.com/v1/api/jobs/{pais}/search/{pagina}`. `app_id` e
+`app_key` são parâmetros da requisição conforme o contrato oficial, nunca cabeçalho Authorization.
+Página é limitada a 1–100, resultados a 1–50 e distância a 1–100 km. Contrato, jornada e ordenação
+usam apenas valores aceitos pela API.
+
+A API não possui parâmetro de trabalho remoto. Quando solicitado, o VagaScan filtra localmente
+título, localização e descrição e informa que o total aproximado veio antes desse filtro.
+
+O cache considera provedor, país, termo, local, página, quantidade e filtros. Um resultado válido
+evita nova chamada. Em timeout, conexão, HTTP 429 ou 5xx, um cache com até 24 horas pode ser usado
+como fallback marcado. Credenciais nunca entram no cache.
+
+Resultados exibem “Vagas fornecidas pela Adzuna” e “Jobs by Adzuna”. O botão original mantém o
+`redirect_url` e abre com proteção contra acesso à janela de origem. Consulte os
+[termos da API](https://developer.adzuna.com/docs/terms_of_service) antes de publicar o projeto.
+
+### Provedor HTTP opcional
+
+```dotenv
 JOB_API_URL=
 JOB_API_TOKEN=
 JOB_API_TOKEN_HEADER=Authorization
@@ -84,217 +86,181 @@ JOB_API_REQUIRES_TOKEN=false
 JOB_API_TIMEOUT=10
 ```
 
-Sem `JOB_API_URL`, somente o provedor HTTP fica indisponível. Cadastro, análise, relatórios e o
-provedor de demonstração continuam funcionando.
+O provedor envia somente `q` e `location`. Aceita uma lista JSON ou uma lista em `results`, `items`
+ou `jobs`; APIs com contratos diferentes devem ganhar um adaptador próprio. URL e token vêm apenas
+do ambiente e não ficam disponíveis para visitantes.
 
-### Contrato do provedor HTTP configurável
+### Administrador e sessão
 
-O projeto não contém endpoint inventado. `JOB_API_URL` deve ser a URL real documentada pelo serviço
-escolhido. A busca envia `GET` com os parâmetros `q` e `location`. O retorno pode ser uma lista JSON
-ou um objeto cuja lista esteja em `results`, `items` ou `jobs`.
-
-Cada item precisa de `title`/`titulo` e `description`/`descricao`. Também são aceitos `id`,
-`company`/`empresa`, `location`/`localizacao`, `url`/`link`, `level`/`nivel`,
-`modality`/`modalidade` e `created`/`published_at`/`data_publicacao`. Adapte o método `_converter`
-ao contrato oficial de outro serviço. HTTP 429, timeout, erro HTTP, JSON inválido e credencial
-obrigatória ausente viram mensagens compreensíveis na CLI.
-
-A URL precisa usar HTTP/HTTPS e não pode conter `usuario:senha@host`. Tokens são enviados somente no
-cabeçalho configurado e não são incluídos nas mensagens ou logs. A sessão HTTP criada internamente é
-fechada após cada busca.
-
-## Inicialização e execução
+Gere o hash sem colocar a senha no histórico do terminal:
 
 ```powershell
-# Cria as tabelas com segurança e encerra
-python -m vagasscan --somente-inicializar
-
-# Abre o menu principal
-python -m vagasscan
-
-# Alternativa depois da instalação editável
-vagasscan
+python -m vagasscan gerar-hash-senha
 ```
 
-Para carregar os três registros fictícios em um banco separado:
+Copie somente o hash retornado para `VAGASSCAN_ADMIN_PASSWORD_HASH`. Gere o segredo:
+
+```powershell
+python -m vagasscan gerar-segredo-sessao
+```
+
+Copie o valor para `VAGASSCAN_SESSION_SECRET`. O exemplo mantém ambos vazios. Sem hash, o login é
+desabilitado; sem segredo, desenvolvimento usa uma sessão efêmera e também desabilita o login. Em
+produção, segredo ausente impede a inicialização.
+
+```dotenv
+VAGASSCAN_ADMIN_USERNAME=admin
+VAGASSCAN_ADMIN_PASSWORD_HASH=
+VAGASSCAN_SESSION_SECRET=
+VAGASSCAN_PUBLIC_DEMO=true
+VAGASSCAN_COOKIE_SECURE=false
+```
+
+Use `VAGASSCAN_COOKIE_SECURE=true` com HTTPS. A sessão expira em oito horas, usa cookie HttpOnly e
+SameSite=Lax. Logout e formulários de escrita exigem CSRF.
+
+## Banco e migrações
+
+Inicialize o banco principal sem abrir o menu:
+
+```powershell
+python -m vagasscan --somente-inicializar
+```
+
+`Database.initialize()` reconhece o schema legado, aplica migrações ordenadas e registra versões em
+`schema_migrations`. Nenhuma migração apaga ou recria tabelas existentes. Vagas antigas recebem
+defaults para salário, categoria, contrato e jornada.
+
+## Executar a CLI
+
+```powershell
+python -m vagasscan
+```
+
+O menu oferece:
+
+1. Adzuna — vagas reais;
+2. demonstração local;
+3. HTTP configurável.
+
+Credenciais Adzuna ausentes mostram orientação e retornam ao menu. Cadastro manual, importação,
+relatórios e demonstração continuam funcionando.
+
+Carregue três vagas fictícias no banco separado:
 
 ```powershell
 python -m vagasscan --carregar-demo
 ```
 
-Esse comando usa `data/vagasscan_demo.db`; não mistura demonstração com `data/vagasscan.db`.
-Executá-lo novamente apenas informa as duplicatas.
+## Executar a web
 
-Para abrir a CLI apontando temporariamente para os dados fictícios:
+Modo local pela configuração do `.env`:
 
 ```powershell
-$env:VAGASSCAN_DATABASE = "data\vagasscan_demo.db"
-python -m vagasscan
-$env:VAGASSCAN_DATABASE = ""
+python -m vagasscan web
 ```
 
-A opção “Demonstração local” da busca também grava somente no caminho configurado por
-`VAGASSCAN_DEMO_DATABASE`.
+Acesse [http://127.0.0.1:8000](http://127.0.0.1:8000). Também funciona:
+
+```powershell
+python -m uvicorn vagasscan.web.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+Em produção, não use reload. O health check é `GET /health` e retorna somente:
+
+```json
+{"status":"ok"}
+```
+
+### Área pública
+
+Visitantes podem ver a landing page, buscar vagas em banco público separado, abrir detalhes e
+analisar temporariamente uma descrição. Não podem consultar o banco principal, perfil real,
+candidaturas, observações, relatórios ou organizador.
+
+`VAGASSCAN_PUBLIC_DEMO=false` mantém landing e login, mas desabilita busca/análise públicas. O
+limitador simples é por processo: cinco buscas/minuto, dez análises/minuto e dez cache misses Adzuna
+por minuto no total.
+
+### Área privada
+
+Após login, o administrador acessa dashboard, busca no banco principal, vagas, status, candidaturas,
+relatórios, perfil, reanálise e cadastro/importação. Não existe cadastro público de usuários.
+
+O organizador web só aparece quando a flag e os dois caminhos do servidor estão configurados:
+
+```dotenv
+VAGASSCAN_ENABLE_FILE_ORGANIZER_WEB=false
+VAGASSCAN_FILE_ORGANIZER_SOURCE=
+VAGASSCAN_FILE_ORGANIZER_DESTINATION=
+```
+
+O navegador nunca envia caminhos. A página apenas simula e confirma o plano calculado no servidor.
+Deixe a função desabilitada em hospedagem.
+
+## Teste manual opcional da Adzuna
+
+Os testes automatizados nunca chamam a API real. Para uma única consulta, sem cache ou gravação:
+
+```powershell
+python -m vagasscan testar-adzuna --termo python
+```
+
+O comando usa página 1, no máximo cinco resultados e mostra apenas título, empresa e localização.
+Sem ambas as credenciais, nenhuma chamada é feita.
 
 ## Testes e qualidade
 
 ```powershell
-python -m pytest
+python -m pytest --basetemp=data\pytest-temporario -rs
 python -m ruff check .
+python -m compileall -q vagasscan tests
+python -m pip check
 ```
 
-Se o Windows negar acesso à pasta temporária global do pytest, use uma pasta isolada:
+Fixtures usam bancos e perfis temporários. Sessões HTTP falsas validam endpoint, parâmetros,
+paginação, conversão, cache, erros e proteção de segredos.
 
-```powershell
-python -m pytest --basetemp=data\pytest-temporario
-```
+## Segurança
 
-Os testes usam bancos e pastas temporários; não tocam em documentos pessoais nem no banco real.
-
-Para colar uma descrição com várias linhas na CLI, cole o texto e depois digite `FIM` em uma linha
-separada. Digitar `0` como primeira linha cancela a operação.
+- SQL parametrizado e transações para vaga/análise e candidatura/status;
+- senha com `hashlib.scrypt` versionado e comparação em tempo constante;
+- Jinja2 com autoescape, URLs HTTP(S) validadas e CSP sem scripts inline;
+- cookies HttpOnly, SameSite, Secure em produção, expiração e invalidação no logout;
+- CSRF em formulários POST, rate limiting em memória e limites de tamanho;
+- headers `nosniff`, Referrer-Policy, Permissions-Policy, frame protection e HSTS sob HTTPS;
+- credenciais ausentes de HTML, JavaScript, health check, cache e mensagens de erro;
+- banco, perfil, logs e documentos fora dos arquivos estáticos;
+- organizador sem upload e sem caminhos fornecidos pelo navegador.
 
 ## Estrutura
 
 ```text
 vagasscan/
-├── main.py                 # inicialização e comandos
-├── cli.py                  # menu e validação de entradas
-├── config.py               # .env, caminhos e logging
-├── database.py             # conexão e schema SQLite
-├── models.py               # dataclasses e status
-├── analyzers/              # extração e compatibilidade
-├── providers/              # demonstração e HTTP configurável
-├── repositories/           # SQL de vagas e candidaturas
-├── services/               # casos de uso
-├── reports/                # consultas e exportação
-├── file_organizer/         # plano, movimento e desfazer
-└── utils/                  # normalização de texto e URL
-tests/                      # testes automatizados
-data/                       # perfil, palavras-chave e bancos locais
-logs/                       # log de execução
-exports/                    # relatórios gerados
-docs/                       # documentação técnica
+├── providers/       # Adzuna, demonstração e HTTP genérico
+├── services/        # busca, análise, persistência e perfil
+├── repositories/    # SQL de vagas, candidaturas e cache
+├── analyzers/       # palavras-chave e compatibilidade
+├── web/             # FastAPI, rotas, templates, CSS e JS
+├── file_organizer/  # simulação, movimento seguro e desfazer
+├── database.py      # conexões e migrações
+├── models.py        # modelos internos
+└── main.py          # CLI e comandos
 ```
 
-Leia também [GUIA_DE_ESTUDO.md](GUIA_DE_ESTUDO.md) e
-[ARQUITETURA.md](docs/ARQUITETURA.md). A última revisão está registrada em
-[AUDITORIA_TECNICA.md](docs/AUDITORIA_TECNICA.md).
+Leia também [Arquitetura](docs/ARQUITETURA.md), [Deploy](docs/DEPLOY.md),
+[Integração com portfólio](docs/PORTFOLIO_INTEGRATION.md),
+[Auditoria técnica](docs/AUDITORIA_TECNICA.md) e [Guia de estudo](GUIA_DE_ESTUDO.md).
 
-## Como usar
+## Limitações reais
 
-1. Ajuste `data/profile.json` sem alterar código.
-2. Execute `python -m vagasscan`.
-3. Comece pelo provedor de demonstração ou cole uma descrição real autorizada.
-4. Confira a análise e confirme manualmente requisitos ambíguos.
-5. Marque vagas interessantes, registre candidaturas e próximas ações.
-6. Consulte as opções 9, 10, 11 e 14 para priorização e relatórios.
+- análise determinística não compreende perfeitamente contexto, negações ou requisitos implícitos;
+- descrições de busca da Adzuna podem ser resumidas/truncadas pela própria fonte;
+- filtro remoto é uma heurística local;
+- rate limiting é em memória e pressupõe um processo;
+- SQLite requer volume persistente e não é adequado a múltiplas instâncias concorrentes;
+- cache pode mostrar resultado marcado com até 24 horas durante falha transitória;
+- organizador continua dependente do sistema de arquivos local;
+- publicação contínua deve confirmar licença, atribuição e limites vigentes da Adzuna.
 
-## Segurança
-
-- SQL recebe valores por parâmetros `?`; entradas não são concatenadas às consultas de dados.
-- `.env`, bancos, logs e exportações são ignorados pelo Git.
-- O organizador começa simulado, mostra origem/destino, pede confirmação em lote, não exclui e
-  nunca sobrescreve silenciosamente.
-- Pastas internas do VagasScan e caminhos com links simbólicos são rejeitados. Se um lote falhar no
-  meio, os movimentos concluídos são revertidos; uma falha parcial fica marcada no histórico.
-- O histórico em `data/movimentacoes.json` permite desfazer o último lote quando os caminhos estão
-  livres.
-- A API é somente leitura e não automatiza candidatura.
-- Exportações não sobrescrevem por padrão; a CLI só habilita isso após confirmação. O CSV neutraliza
-  textos que poderiam ser interpretados como fórmulas pelo Excel.
-- Vaga e requisitos são gravados na mesma transação; candidatura, etapa e status também são
-  sincronizados atomicamente. Conexões de leitura e escrita são fechadas explicitamente.
-
-## Compatibilidade auditada
-
-A nota continua limitada a 0–100 e é determinística. A parcela técnica vale 55 pontos, área 15,
-nível 10, localização/modalidade 10, experiência 5 e formação 5. Requisito obrigatório pesa 2,
-normal pesa 1 e desejável pesa 0,75. Escolaridade e experiência não são contadas novamente na
-parcela técnica. Conhecimentos repetidos são consolidados.
-
-Vagas de nível pleno recebem penalidade de 6 pontos e vagas sênior/especialista, 12 pontos. A nota
-não é zerada automaticamente e a justificativa mostra a penalidade. Menções negativas simples, como
-“Python não é necessário”, não viram requisitos.
-
-Datas e horários internos criados pelo SQLite usam UTC; datas civis de candidatura usam
-`AAAA-MM-DD` e são validadas antes da gravação.
-
-## Limitações reais do MVP
-
-- O analisador usa regras: não compreende perfeitamente negação, contexto ou requisitos implícitos.
-- O formato HTTP é genérico; uma API concreta pode exigir paginação, parâmetros ou mapeamento.
-- Não há atualização automática, agendador, interface web, autenticação ou sincronização em nuvem.
-- A edição guiada do perfil adiciona itens; remoções e alterações completas são feitas no JSON.
-- O desfazer cobre o último lote e falha com segurança se a origem estiver ocupada ou o arquivo
-  movido não existir.
-- Datas são armazenadas como ISO 8601; não há cálculo de feriados ou fuso em lembretes.
-- Movimentações entre discos/volumes não são transações do sistema operacional. O rollback é de
-  melhor esforço e uma falha não reversível fica registrada para correção manual.
-- O histórico JSON possui validação estrutural e escrita atômica, mas não assinatura criptográfica;
-  um usuário com acesso ao disco ainda pode adulterá-lo.
-- Timeout, HTTP e JSON inválido foram testados com respostas controladas. Nenhuma API real foi
-  chamada porque não há endpoint ou credencial configurados.
-
-## Roadmap
-
-- adaptadores para APIs públicas escolhidas a partir de documentação oficial;
-- paginação e cache de buscas;
-- edição completa de vaga e perfil pela CLI;
-- reanálise em lote após alteração do perfil;
-- notificações locais opcionais;
-- interface web somente após estabilizar domínio e testes.
-
-## Solução de problemas
-
-### `python` não é reconhecido
-
-Instale Python 3.12+ pelo site oficial ou Microsoft Store, marque a opção para adicionar Python ao
-`PATH` e abra um novo PowerShell. No Windows, tente também `py --version` e substitua `python` por
-`py` nos comandos.
-
-### O ambiente virtual não está ativado
-
-O prompt normalmente começa com `(.venv)`. Ative com:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
-
-### `ModuleNotFoundError`
-
-Confirme que o ambiente está ativo e reinstale a partir da raiz:
-
-```powershell
-python -m pip install -e ".[dev]"
-python -m vagasscan --somente-inicializar
-```
-
-### Banco bloqueado
-
-Feche outras instâncias do VagasScan e programas que estejam inspecionando o `.db`. O aplicativo
-aguarda até cinco segundos antes de informar o bloqueio. Não copie ou sincronize o banco enquanto o
-programa estiver escrevendo.
-
-### Credenciais ausentes
-
-Isso desativa apenas o provedor HTTP. Configure `JOB_API_URL`, `JOB_API_TOKEN` e
-`JOB_API_REQUIRES_TOKEN=true` conforme a documentação oficial da fonte, ou continue usando cadastro
-manual/importação. Não coloque o token no README nem em `JOB_API_URL`.
-
-### API indisponível, timeout ou HTTP 429
-
-A CLI informa que a fonte não pôde ser consultada e volta ao menu. Aguarde, confira internet/URL e
-limites da fonte. Os dados locais continuam disponíveis; nenhuma vaga parcial é salva.
-
-### Acentuação incorreta no terminal
-
-O projeto lê e grava UTF-8. No Windows Terminal moderno isso funciona por padrão. No PowerShell
-legado, execute antes da aplicação:
-
-```powershell
-chcp 65001
-$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
-python -m vagasscan
-```
+O próximo passo de hospedagem está documentado, mas nenhum deploy ou DNS faz parte desta entrega.

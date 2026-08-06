@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Buscar vagas — VagaScan{% endblock %}
+{% block content %}
+<section class="page-header"><div class="container"><p class="eyebrow">OPORTUNIDADES</p><h1>Buscar vagas</h1><p>Use poucos filtros para começar. Você poderá refinar a busca depois.</p></div></section>
+<section class="section"><div class="container narrow">
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form class="form-card" method="get" action="{% if private %}/dashboard/buscar{% else %}/buscar{% endif %}">
+    <div class="form-grid">
+      <div class="field field-wide"><label for="termo">Termo de busca</label><input id="termo" name="termo" maxlength="100" required placeholder="Ex.: Python júnior"></div>
+      <div class="field"><label for="localizacao">Localização</label><input id="localizacao" name="localizacao" maxlength="100" placeholder="Ex.: São Paulo"></div>
+      <div class="field"><label for="provedor">Fonte</label><select id="provedor" name="provedor"><option value="adzuna">Adzuna — vagas reais</option><option value="demonstracao">Demonstração local</option>{% if private %}<option value="http">HTTP configurável</option>{% endif %}</select></div>
+      <div class="field"><label for="tipo_contrato">Contrato</label><select id="tipo_contrato" name="tipo_contrato"><option value="">Qualquer</option><option value="permanent">Permanente</option><option value="contract">Contrato</option></select></div>
+      <div class="field"><label for="jornada">Jornada</label><select id="jornada" name="jornada"><option value="">Qualquer</option><option value="full_time">Período integral</option><option value="part_time">Período parcial</option></select></div>
+      <div class="field"><label for="ordenacao">Ordenação</label><select id="ordenacao" name="ordenacao"><option value="relevance">Relevância</option><option value="date">Mais recentes</option><option value="salary">Salário</option><option value="hybrid">Híbrida</option><option value="default">Padrão da fonte</option></select></div>
+      <div class="field"><label for="resultados_por_pagina">Resultados</label><input id="resultados_por_pagina" name="resultados_por_pagina" type="number" min="1" max="50" value="20"></div>
+      <div class="field"><label for="distancia">Distância (km)</label><input id="distancia" name="distancia" type="number" min="1" max="100" placeholder="Opcional"></div>
+      <label class="check"><input type="checkbox" name="remoto" value="1"> Somente remoto <small>(filtro aproximado local)</small></label>
+    </div>
+    <button class="button" type="submit">Buscar vagas</button>
+  </form>
+</div></section>
+{% endblock %}

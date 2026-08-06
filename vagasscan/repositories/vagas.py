@@ -12,6 +12,11 @@ from vagasscan.utils.text import normalizar_texto, normalizar_url
 class VagaDuplicadaError(ValueError):
     """Indica que uma vaga já existe e informa a regra que coincidiu."""
 
+    def __init__(self, mensagem: str, *, vaga_id: int | None = None, regra: str = "") -> None:
+        super().__init__(mensagem)
+        self.vaga_id = vaga_id
+        self.regra = regra
+
 
 class VagaRepository:
     def __init__(self, database: Database) -> None:
@@ -48,6 +53,20 @@ class VagaRepository:
                 raise ValueError("A compatibilidade deve ser um número entre 0 e 100.") from exc
             if not math.isfinite(vaga.compatibilidade) or not 0 <= vaga.compatibilidade <= 100:
                 raise ValueError("A compatibilidade deve estar entre 0 e 100.")
+        for campo in ("salario_min", "salario_max"):
+            valor = getattr(vaga, campo)
+            if valor is None:
+                continue
+            try:
+                valor = float(valor)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("O salário deve ser um número não negativo.") from exc
+            if not math.isfinite(valor) or valor < 0:
+                raise ValueError("O salário deve ser um número não negativo.")
+            setattr(vaga, campo, valor)
+        vaga.categoria = str(vaga.categoria or "").strip()
+        vaga.tipo_contrato = str(vaga.tipo_contrato or "").strip()
+        vaga.jornada = str(vaga.jornada or "").strip()
 
     @staticmethod
     def _integridade_e_duplicata_vaga(exc: sqlite3.IntegrityError) -> bool:
@@ -80,19 +99,37 @@ class VagaRepository:
                 return dict(row), "título, empresa e localização"
         return None, None
 
+    def _duplicata_apos_integridade(self, vaga: Vaga) -> VagaDuplicadaError:
+        duplicata, regra = self.encontrar_duplicata(vaga)
+        if duplicata:
+            return VagaDuplicadaError(
+                f"A vaga coincide com o registro #{duplicata['id']} por {regra}.",
+                vaga_id=int(duplicata["id"]),
+                regra=regra or "restrição única",
+            )
+        return VagaDuplicadaError(
+            "A vaga coincide com um registro já existente.",
+            regra="restrição única",
+        )
+
     def criar(self, vaga: Vaga, *, aceitar_possivel_duplicata: bool = False) -> int:
         self._preparar(vaga)
         duplicata, regra = self.encontrar_duplicata(vaga)
         if duplicata and (
             regra != "título, empresa e localização" or not aceitar_possivel_duplicata
         ):
-            raise VagaDuplicadaError(f"Possível duplicata da vaga #{duplicata['id']} por {regra}.")
+            raise VagaDuplicadaError(
+                f"Possível duplicata da vaga #{duplicata['id']} por {regra}.",
+                vaga_id=int(duplicata["id"]),
+                regra=regra or "",
+            )
         sql = """
             INSERT INTO vagas (
                 titulo, empresa, localizacao, modalidade, nivel, descricao, link,
                 link_normalizado, fonte, identificador_externo, chave_conteudo,
-                data_publicacao, compatibilidade, status, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                data_publicacao, compatibilidade, status, observacoes,
+                salario_min, salario_max, categoria, tipo_contrato, jornada
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         valores = self._valores_insert(vaga)
         try:
@@ -101,7 +138,7 @@ class VagaRepository:
                 return int(cursor.lastrowid)
         except sqlite3.IntegrityError as exc:
             if self._integridade_e_duplicata_vaga(exc):
-                raise VagaDuplicadaError("A vaga coincide com um registro já existente.") from exc
+                raise self._duplicata_apos_integridade(vaga) from exc
             raise
 
     def criar_analisada(
@@ -117,13 +154,18 @@ class VagaRepository:
         if duplicata and (
             regra != "título, empresa e localização" or not aceitar_possivel_duplicata
         ):
-            raise VagaDuplicadaError(f"Possível duplicata da vaga #{duplicata['id']} por {regra}.")
+            raise VagaDuplicadaError(
+                f"Possível duplicata da vaga #{duplicata['id']} por {regra}.",
+                vaga_id=int(duplicata["id"]),
+                regra=regra or "",
+            )
         sql = """
             INSERT INTO vagas (
                 titulo, empresa, localizacao, modalidade, nivel, descricao, link,
                 link_normalizado, fonte, identificador_externo, chave_conteudo,
-                data_publicacao, compatibilidade, status, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                data_publicacao, compatibilidade, status, observacoes,
+                salario_min, salario_max, categoria, tipo_contrato, jornada
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         try:
             with self.database.transaction() as connection:
@@ -133,7 +175,7 @@ class VagaRepository:
                 return vaga_id
         except sqlite3.IntegrityError as exc:
             if self._integridade_e_duplicata_vaga(exc):
-                raise VagaDuplicadaError("A vaga coincide com um registro já existente.") from exc
+                raise self._duplicata_apos_integridade(vaga) from exc
             raise
 
     def _valores_insert(self, vaga: Vaga) -> tuple[Any, ...]:
@@ -153,6 +195,11 @@ class VagaRepository:
             vaga.compatibilidade,
             vaga.status,
             vaga.observacoes,
+            vaga.salario_min,
+            vaga.salario_max,
+            vaga.categoria,
+            vaga.tipo_contrato,
+            vaga.jornada,
         )
 
     @staticmethod
@@ -267,3 +314,15 @@ class VagaRepository:
                     (vaga_id,),
                 ).fetchall()
             ]
+
+    def obter_publico(self, vaga_id: int) -> dict[str, Any] | None:
+        """Retorna somente campos que podem aparecer na demonstração pública."""
+        campos = """id, titulo, empresa, localizacao, modalidade, nivel, descricao,
+                    link, fonte, identificador_externo, data_publicacao, compatibilidade,
+                    salario_min, salario_max, categoria, tipo_contrato, jornada"""
+        with self.database.connection() as connection:
+            row = connection.execute(
+                f"SELECT {campos} FROM vagas WHERE id = ?",  # noqa: S608
+                (vaga_id,),
+            ).fetchone()
+            return dict(row) if row else None

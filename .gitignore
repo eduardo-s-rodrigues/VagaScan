@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.py[cod]
@@ -15,3 +17,4 @@ exports/*.csv
 exports/*.md
 exports/*.tmp
 data/movimentacoes.json
+data/profile*.bak-*

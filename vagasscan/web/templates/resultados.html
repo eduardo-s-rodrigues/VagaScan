@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Resultados — VagaScan{% endblock %}
+{% block content %}
+<section class="page-header"><div class="container"><p class="eyebrow">RESULTADOS</p><h1>{{ consulta.termo }}</h1><p>{{ consulta.localizacao or 'Todas as localidades' }}{% if consulta.remoto %} • somente remoto (aproximação local){% endif %}</p></div></section>
+<section class="section"><div class="container">
+  <div class="summary-bar" aria-live="polite"><span>Página <strong>{{ resultado.pagina }}</strong></span><span>Total aproximado <strong>{{ resultado.total_aproximado }}</strong></span><span>Recebidas <strong>{{ resultado.recebidas }}</strong></span><span>Salvas <strong>{{ resultado.cadastradas|length }}</strong></span><span>Duplicadas <strong>{{ resultado.duplicadas|length }}</strong></span><span>Erros <strong>{{ resultado.erros|length }}</strong></span></div>
+  {% if resultado.veio_cache %}<div class="alert" role="status">Resultado vindo do cache{% if resultado.cache_desatualizado %} anterior por indisponibilidade temporária da fonte{% endif %}.</div>{% endif %}
+  {% for error in resultado.erros %}<div class="alert alert-error">{{ error }}</div>{% endfor %}
+  <div class="jobs-grid">
+  {% for item in resultado.itens %}
+    {% set vaga = item.vaga %}
+    <article class="job-card">
+      <div class="job-top"><span class="source">{{ vaga.fonte }}</span><span class="score">{{ '%.1f'|format(vaga.compatibilidade or 0) }}%</span></div>
+      <h2>{{ vaga.titulo }}</h2><p class="company">{{ vaga.empresa }}</p><p class="metadata">{{ vaga.localizacao }} • {{ vaga.modalidade }} • {{ vaga.nivel }}</p>
+      {% if vaga.data_publicacao %}<p class="small">Publicada em {{ vaga.data_publicacao[:10] }}</p>{% endif %}
+      <div class="match-columns"><div><strong>Compatíveis</strong><p>{{ item.analise.pontos_compativeis[:3]|join(', ') or 'Nenhum detectado' }}</p></div><div><strong>A desenvolver</strong><p>{{ item.analise.conhecimentos_ausentes[:3]|join(', ') or 'Nenhum detectado' }}</p></div></div>
+      {% if vaga.fonte == 'adzuna' %}<p class="attribution">Vagas fornecidas pela Adzuna • <a class="adzuna-mark" href="https://www.adzuna.com.br/" target="_blank" rel="noopener noreferrer">Jobs by <strong>Adzuna</strong></a></p>{% endif %}
+      <div class="card-actions"><a class="button button-small" href="{% if private %}/dashboard{% endif %}/vagas/{{ item.vaga_id }}">Ver detalhes</a>{% if url_http_segura(vaga.link) %}<a class="text-link" href="{{ vaga.link }}" target="_blank" rel="noopener noreferrer">Abrir vaga original</a>{% endif %}</div>
+    </article>
+  {% else %}<div class="empty"><h2>Nenhuma vaga encontrada</h2><p>Tente um termo mais amplo ou retire alguns filtros.</p></div>{% endfor %}
+  </div>
+  <div class="pagination">
+    {% if consulta.pagina > 1 %}<a class="button button-secondary button-small" href="?termo={{ consulta.termo|urlencode }}&localizacao={{ consulta.localizacao|urlencode }}&provedor={{ provider_name }}&pagina={{ consulta.pagina - 1 }}&resultados_por_pagina={{ consulta.resultados_por_pagina }}">Página anterior</a>{% endif %}
+    {% if resultado.recebidas == consulta.resultados_por_pagina %}<a class="button button-small" href="?termo={{ consulta.termo|urlencode }}&localizacao={{ consulta.localizacao|urlencode }}&provedor={{ provider_name }}&pagina={{ consulta.pagina + 1 }}&resultados_por_pagina={{ consulta.resultados_por_pagina }}">Próxima página</a>{% endif %}
+  </div>
+</div></section>
+{% endblock %}

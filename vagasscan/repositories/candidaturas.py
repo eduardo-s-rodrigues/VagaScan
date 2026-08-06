@@ -131,3 +131,13 @@ class CandidaturaRepository:
                        ORDER BY c.data_proxima_acao IS NULL, c.data_proxima_acao, c.id DESC"""
                 ).fetchall()
             ]
+
+    def obter(self, candidatura_id: int) -> dict[str, Any] | None:
+        with self.database.connection() as connection:
+            row = connection.execute(
+                """SELECT c.*, v.titulo, v.empresa
+                   FROM candidaturas c JOIN vagas v ON v.id = c.vaga_id
+                   WHERE c.id = ?""",
+                (candidatura_id,),
+            ).fetchone()
+            return dict(row) if row else None

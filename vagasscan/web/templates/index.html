@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}VagaScan — vagas de tecnologia em um só lugar{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow">BUSCA • ANÁLISE • ACOMPANHAMENTO</p>
+      <h1>Encontre, analise e acompanhe vagas de tecnologia em um só lugar.</h1>
+      <p class="lead">O VagaScan transforma descrições extensas em informações práticas e ajuda você a priorizar oportunidades com mais clareza.</p>
+      <div class="hero-actions"><a class="button" href="/buscar">Pesquisar vagas</a><a class="button button-secondary" href="/analisar">Analisar uma descrição</a></div>
+      <form class="hero-search" method="get" action="/buscar">
+        <input type="hidden" name="provedor" value="adzuna">
+        <label for="hero-term">Comece por um cargo ou tecnologia</label>
+        <div><input id="hero-term" name="termo" maxlength="100" required placeholder="Python júnior"><input name="localizacao" maxlength="100" aria-label="Localização" placeholder="São Paulo ou remoto"><button class="button" type="submit">Buscar</button></div>
+      </form>
+    </div>
+    <div class="hero-panel" aria-label="Resumo do funcionamento">
+      <div class="metric"><span>01</span><strong>Pesquise</strong><small>Consulte vagas reais ou use a demonstração.</small></div>
+      <div class="metric"><span>02</span><strong>Entenda</strong><small>Veja requisitos, pontos compatíveis e lacunas.</small></div>
+      <div class="metric"><span>03</span><strong>Acompanhe</strong><small>Organize candidaturas e próximas ações.</small></div>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <div class="section-heading"><p class="eyebrow">COMO FUNCIONA</p><h2>Da descoberta à próxima ação</h2></div>
+    <div class="steps">
+      <article><span>1</span><h3>Pesquise vagas</h3><p>Use termo, localização, contrato, jornada e filtros seguros.</p></article>
+      <article><span>2</span><h3>Veja a compatibilidade</h3><p>Compare requisitos encontrados com um perfil de demonstração.</p></article>
+      <article><span>3</span><h3>Identifique lacunas</h3><p>Separe conhecimentos presentes, ausentes e itens para confirmar.</p></article>
+      <article><span>4</span><h3>Acompanhe a candidatura</h3><p>Na área privada, registre etapas e organize próximas ações.</p></article>
+    </div>
+  </div>
+</section>
+<section class="section section-muted">
+  <div class="container split">
+    <div><p class="eyebrow">TECNOLOGIAS</p><h2>Simples por escolha, completo no essencial</h2><p>Python, FastAPI, Jinja2, SQLite, pytest e integração oficial com a Adzuna. Templates são renderizados no servidor e as regras de negócio são compartilhadas com a CLI.</p></div>
+    <aside class="notice"><strong>Importante</strong><p>A nota é uma estimativa baseada em regras e palavras-chave. Ela não garante aprovação em processo seletivo e não substitui a leitura humana.</p></aside>
+  </div>
+</section>
+{% endblock %}
