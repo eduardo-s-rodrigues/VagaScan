@@ -21,6 +21,7 @@
   <meta name="twitter:image" content="{{ settings.base_url.rstrip('/') }}/static/img/social-card.svg">
   <title>{% block title %}VagaScan{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}?v=4">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/refinement.css') }}?v=1">
   <script src="{{ url_for('static', path='/js/app.js') }}?v=4" defer></script>
 </head>
 <body data-saved-jobs-limit="{{ settings.saved_jobs_limit }}">
@@ -57,7 +58,7 @@
   </main>
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div class="footer-brand"><strong>VagaScan</strong><p>Projeto desenvolvido em Python para pesquisa e análise de vagas de tecnologia.</p></div>
+      <div class="footer-brand"><strong>VagaScan</strong><p>Projeto em Python para organizar a busca, a comparação e o acompanhamento de vagas de tecnologia.</p></div>
       <nav class="footer-links" aria-label="Links do projeto">
         <a href="/sobre">Sobre</a>
         <a href="/como-funciona">Como funciona</a>
