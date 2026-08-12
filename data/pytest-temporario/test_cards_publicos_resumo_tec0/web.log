@@ -1,2 +1,0 @@
-2026-08-05 23:02:34,208 | INFO | vagasscan.services.vagas | Vaga cadastrada e analisada: id=1 fonte=adzuna
-2026-08-05 23:02:34,210 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=python&provedor=adzuna "HTTP/1.1 200 OK"

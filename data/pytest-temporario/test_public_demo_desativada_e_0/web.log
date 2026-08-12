@@ -1,2 +1,0 @@
-2026-08-05 23:02:33,230 | INFO | httpx | HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
-2026-08-05 23:02:33,233 | INFO | httpx | HTTP Request: GET http://testserver/buscar?termo=python "HTTP/1.1 403 Forbidden"

@@ -1,6 +1,0 @@
-2026-08-05 23:02:33,691 | INFO | httpx | HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
-2026-08-05 23:02:33,795 | INFO | httpx | HTTP Request: POST http://testserver/login "HTTP/1.1 303 See Other"
-2026-08-05 23:02:33,820 | INFO | vagasscan.services.vagas | Vaga cadastrada e analisada: id=1 fonte=adzuna
-2026-08-05 23:02:33,840 | INFO | httpx | HTTP Request: GET http://testserver/dashboard/buscar?termo=python "HTTP/1.1 200 OK"
-2026-08-05 23:02:33,853 | INFO | httpx | HTTP Request: GET http://testserver/dashboard/buscar?termo=sql "HTTP/1.1 200 OK"
-2026-08-05 23:02:33,859 | INFO | httpx | HTTP Request: GET http://testserver/dashboard/buscar?termo=fastapi "HTTP/1.1 429 Too Many Requests"
