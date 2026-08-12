@@ -1,0 +1,505 @@
+/*
+  Refinamento visual do VagaScan.
+  Mantém a paleta original e reduz excessos de sombra, pills e caixas para
+  deixar a leitura mais direta, especialmente na busca e nos resultados.
+*/
+
+:root {
+  --shadow: 0 7px 22px rgba(8, 26, 51, .06);
+  --radius: 14px;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.site-header {
+  background: rgba(8, 26, 51, .96);
+  backdrop-filter: blur(14px);
+}
+
+.header-inner {
+  min-height: 60px;
+}
+
+.brand {
+  font-size: 1.24rem;
+  letter-spacing: -.035em;
+}
+
+.main-nav {
+  gap: 1.05rem;
+}
+
+.main-nav a,
+.link-button {
+  font-size: .88rem;
+  font-weight: 650;
+  opacity: .9;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.main-nav a:hover,
+.main-nav a:focus-visible,
+.link-button:hover,
+.link-button:focus-visible {
+  opacity: 1;
+}
+
+.hero-compact {
+  padding: clamp(2.35rem, 4.5vw, 3.9rem) 0 2.1rem;
+}
+
+.hero-copy {
+  max-width: 850px;
+}
+
+.hero h1,
+.page-header h1,
+.search-page-head h1 {
+  font-size: clamp(2.3rem, 4.6vw, 4rem);
+  letter-spacing: -.045em;
+  line-height: 1.04;
+}
+
+.lead {
+  max-width: 760px;
+  margin-bottom: 1.1rem;
+  line-height: 1.6;
+}
+
+.hero-indicators {
+  gap: .5rem;
+}
+
+.hero-indicators span {
+  padding: .3rem .58rem;
+  border-radius: 8px;
+  font-size: .8rem;
+}
+
+.search-panel {
+  gap: .65rem;
+  margin-top: 1.35rem;
+  padding: .85rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(8, 26, 51, .07);
+}
+
+.search-field label {
+  font-weight: 750;
+}
+
+input,
+select,
+textarea {
+  border-radius: 8px;
+}
+
+.button {
+  border-radius: 8px;
+  font-weight: 720;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.quick-searches {
+  margin-top: .72rem;
+}
+
+.quick-searches button {
+  border-radius: 7px;
+  font-size: .8rem;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.section {
+  padding: clamp(2.7rem, 5vw, 4.2rem) 0;
+}
+
+.compact-section {
+  padding: clamp(2.25rem, 4vw, 3.35rem) 0;
+}
+
+.section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.steps {
+  gap: .75rem;
+}
+
+.steps article {
+  padding: 1.1rem;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.steps span {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: .82rem;
+}
+
+.steps h3 {
+  margin: .68rem 0 .25rem;
+  font-size: 1.02rem;
+}
+
+.steps p {
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.analysis-callout {
+  gap: 2rem;
+}
+
+.notice {
+  padding: 1rem 1.1rem;
+  border-left-width: 3px;
+  border-radius: 8px;
+}
+
+.search-page-head {
+  padding: 2rem 0 1.65rem;
+}
+
+.search-page-head h1 {
+  margin-bottom: .4rem;
+  font-size: clamp(2rem, 3.8vw, 3.05rem);
+}
+
+.search-panel-light {
+  margin-top: 1rem;
+}
+
+.results-section {
+  padding-top: 2rem;
+}
+
+.results-heading {
+  margin-bottom: .8rem;
+}
+
+.results-heading h2 {
+  font-size: 1.75rem;
+}
+
+.results-summary,
+.summary-bar {
+  gap: .35rem .95rem;
+  margin-bottom: 1.05rem;
+  color: var(--muted);
+}
+
+.results-summary span,
+.summary-bar span {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: .78rem;
+}
+
+.results-summary strong,
+.summary-bar strong {
+  color: var(--navy);
+}
+
+.results-layout {
+  grid-template-columns: minmax(0, 1fr) 286px;
+  gap: 1rem;
+}
+
+.jobs-list {
+  gap: .75rem;
+}
+
+.job-card {
+  border-radius: 13px;
+  box-shadow: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.job-card:hover {
+  border-color: #b9c9d9;
+  box-shadow: 0 8px 22px rgba(8, 26, 51, .06);
+  transform: translateY(-1px);
+}
+
+.job-card-horizontal {
+  grid-template-columns: 46px minmax(0, 1fr) 94px;
+  gap: .85rem;
+  padding: 1.08rem;
+}
+
+.company-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: .76rem;
+}
+
+.job-top {
+  align-items: flex-start;
+}
+
+.source {
+  font-size: .66rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+}
+
+.job-top .small {
+  font-size: .76rem;
+}
+
+.job-card h3 {
+  margin: .3rem 0 .08rem;
+  font-size: 1.18rem;
+  letter-spacing: -.015em;
+}
+
+.job-card h3 a {
+  text-decoration: none;
+}
+
+.job-card h3 a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.company {
+  font-size: .92rem;
+  font-weight: 700;
+}
+
+.metadata {
+  margin: .2rem 0 .55rem;
+  font-size: .84rem;
+}
+
+.inference-note {
+  margin: -.32rem 0 .55rem;
+  font-size: .74rem;
+}
+
+.analysis-badges {
+  gap: .55rem;
+  margin: .4rem 0;
+  align-items: center;
+}
+
+.analysis-badges > span {
+  padding: .08rem 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: .75rem;
+}
+
+.analysis-badges > .confidence {
+  padding: .24rem .5rem;
+  border: 1px solid #d2dbe5;
+  border-radius: 7px;
+}
+
+.low-confidence-warning {
+  margin: .55rem 0;
+  padding: .62rem .72rem;
+  border-left-width: 3px;
+  font-size: .82rem;
+}
+
+.chip-groups {
+  gap: .65rem;
+  margin: .62rem 0;
+}
+
+.chip-groups strong {
+  margin-bottom: .3rem;
+  font-size: .78rem;
+}
+
+.chips {
+  gap: .3rem;
+}
+
+.chip {
+  padding: .22rem .46rem;
+  border-radius: 6px;
+  font-size: .73rem;
+  font-weight: 650;
+}
+
+.attribution {
+  margin-top: .75rem;
+  padding-top: .55rem;
+  font-size: .74rem;
+}
+
+.card-actions {
+  gap: .48rem;
+  margin-top: .8rem;
+}
+
+.button-small {
+  min-height: 36px;
+  padding: .4rem .68rem;
+  font-size: .82rem;
+}
+
+.compatibility-score {
+  width: 88px;
+  height: auto;
+  min-height: 76px;
+  padding: .7rem .35rem;
+  border-width: 1px;
+  border-radius: 12px;
+}
+
+.compatibility-score strong {
+  font-size: 1.42rem;
+}
+
+.compatibility-score span {
+  font-size: .64rem;
+}
+
+.search-sidebar {
+  top: 74px;
+  gap: .75rem;
+}
+
+.sidebar-panel {
+  padding: 1.05rem;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.sidebar-panel h2 {
+  font-size: 1rem;
+}
+
+.sidebar-metrics {
+  gap: 0 .8rem;
+}
+
+.sidebar-metrics div {
+  padding: .58rem 0;
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.sidebar-metrics strong {
+  font-size: 1.22rem;
+}
+
+.tech-bar {
+  margin-top: .65rem;
+}
+
+.tech-bar progress {
+  height: 6px;
+}
+
+.site-footer {
+  font-size: .9rem;
+}
+
+@media (max-width: 960px) {
+  .results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .search-sidebar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .header-inner {
+    min-height: 58px;
+  }
+
+  .main-nav {
+    top: 58px;
+  }
+
+  .hero-compact {
+    padding: 1.8rem 0 1.55rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.05rem, 9vw, 2.85rem);
+  }
+
+  .search-panel {
+    padding: .75rem;
+  }
+
+  .results-summary,
+  .summary-bar {
+    gap: .35rem .7rem;
+  }
+
+  .job-card-horizontal {
+    grid-template-columns: 44px minmax(0, 1fr);
+    padding: .95rem;
+  }
+
+  .job-card-horizontal .job-card-content {
+    grid-column: 1 / -1;
+  }
+
+  .job-card-horizontal .compatibility-score {
+    grid-column: 2;
+    grid-row: 1;
+    width: 82px;
+    min-height: 66px;
+    height: auto;
+  }
+
+  .chip-groups,
+  .search-sidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero-compact {
+    padding: 1.35rem 0 1.3rem;
+  }
+
+  .hero h1 {
+    font-size: 1.95rem;
+  }
+
+  .hero-indicators span,
+  .quick-searches button {
+    border-radius: 6px;
+  }
+
+  .job-card h3 {
+    font-size: 1.08rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:hover,
+  .job-card:hover {
+    transform: none;
+  }
+}
